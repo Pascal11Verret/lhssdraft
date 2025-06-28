@@ -469,6 +469,7 @@
         <!-- Viewer refresh info -->
         <div id="viewerInfo" class="hidden" style="text-align: center; margin-bottom: 20px; color: #9ca3af;">
             <p>Mode spectateur - Les données se synchronisent automatiquement en temps réel</p>
+            <p style="font-size: 0.9rem; margin-top: 5px;">💡 Cliquez sur un joueur pour voir ses détails</p>
         </div>
 
         <!-- Main Grid -->
@@ -736,10 +737,8 @@
                 document.getElementById('adminSearchFilters').classList.remove('hidden');
             } else {
                 document.getElementById('viewerInfo').classList.remove('hidden');
-                // En mode spectateur, masquer le panel des détails du joueur
-                document.getElementById('playerDetailsPanel').style.display = 'none';
-                // Ajuster la grille pour 2 colonnes
-                document.querySelector('.grid').style.gridTemplateColumns = '1fr 1fr';
+                // En mode spectateur, garder le panel des détails mais sans les filtres de recherche
+                document.getElementById('adminSearchFilters').style.display = 'none';
             }
             
             loadData();
@@ -844,7 +843,7 @@
 
             playersListEl.innerHTML = filteredPlayers.map(player => `
                 <div class="player-item ${selectedPlayer?.id === player.id ? 'selected' : ''}" 
-                     onclick="${isAdmin ? `selectPlayer(${player.id})` : ''}">
+                     onclick="selectPlayer(${player.id})">
                     <div class="player-potential">${player.potentiel}</div>
                     <div class="player-name">${player.nom}</div>
                     <div class="player-details">${player.position} • ${player.style}</div>
@@ -927,10 +926,8 @@
             `;
         }
 
-        // Actions admin
+        // Actions admin et spectateur
         function selectPlayer(playerId) {
-            if (!isAdmin) return;
-            
             selectedPlayer = players.find(p => p.id === playerId);
             updatePlayersList();
             updatePlayerDetails();
@@ -964,7 +961,7 @@
                     </div>
                 </div>
                 
-                ${currentRound <= 5 ? `
+                ${isAdmin && currentRound <= 5 ? `
                     <button onclick="draftPlayer()" class="btn btn-primary" style="width: 100%; padding: 15px; font-size: 1.1rem;" ${!isConnected && !useLocalStorage ? 'disabled' : ''}>
                         Repêcher avec ${selectedTeam}
                         <br>
