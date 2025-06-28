@@ -253,18 +253,32 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
+            font-size: 0.75rem;
         }
 
         .table th, .table td {
-            padding: 8px;
+            padding: 6px 4px;
             border: 1px solid #4b5563;
             text-align: left;
-            font-size: 0.85rem;
+            word-wrap: break-word;
+            max-width: 120px;
         }
 
         .table th {
             background: rgba(55, 65, 81, 1);
             font-weight: bold;
+            font-size: 0.7rem;
+        }
+
+        @media (max-width: 768px) {
+            .table {
+                font-size: 0.65rem;
+            }
+            
+            .table th, .table td {
+                padding: 4px 2px;
+                max-width: 80px;
+            }
         }
 
         .auto-refresh {
@@ -908,6 +922,8 @@
                             <th>Joueur</th>
                             <th>Position</th>
                             <th>Potentiel</th>
+                            <th>Style</th>
+                            <th>Précision</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -919,6 +935,8 @@
                                 <td>${player.nom}</td>
                                 <td>${player.position}</td>
                                 <td>${player.potentiel}</td>
+                                <td>${player.style}</td>
+                                <td>${player.precision}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -1104,7 +1122,7 @@
                 return;
             }
 
-            const headers = ['Ronde', 'Choix Global', 'Choix de Ronde', 'Équipe', 'Joueur', 'Position', 'Potentiel', 'Style'];
+            const headers = ['Ronde', 'Choix Global', 'Choix de Ronde', 'Équipe', 'Joueur', 'Position', 'Potentiel', 'Style', 'Précision'];
             const csvContent = [
                 headers.join(','),
                 ...draftResults.map(player => [
@@ -1115,7 +1133,8 @@
                     `"${player.nom}"`,
                     player.position,
                     player.potentiel,
-                    `"${player.style}"`
+                    `"${player.style}"`,
+                    player.precision
                 ].join(','))
             ].join('\n');
 
