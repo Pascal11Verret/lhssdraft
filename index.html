@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Repêchage LHSS 2024</title>
+    <title>Repêchage LHSS 2020</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         * {
@@ -271,7 +271,7 @@
 
     <!-- Login Form -->
     <div id="loginForm" class="login-form">
-        <h2>🏒 Repêchage LHSS 2024</h2>
+        <h2>🏒 Repêchage LHSS 2020</h2>
         <p style="margin-bottom: 20px; color: #9ca3af;">
             Choisissez votre mode d'accès
         </p>
@@ -289,7 +289,7 @@
         </button>
         
         <div style="margin-top: 20px; font-size: 0.8rem; color: #9ca3af;">
-            <strong>Mode Admin:</strong> Mot de passe = "lhss2024"<br>
+            <strong>Mode Admin:</strong> Mot de passe = "lhss2020"<br>
             <strong>Mode Spectateur:</strong> Voir les résultats en temps réel
         </div>
     </div>
@@ -297,7 +297,7 @@
     <!-- Main Application -->
     <div id="mainApp" class="container hidden">
         <div class="header">
-            <h1>🏒 Repêchage LHSS 2024</h1>
+            <h1>🏒 Repêchage LHSS 2020</h1>
             <p id="roundInfo">Ronde 1 - Choix #1</p>
         </div>
 
@@ -459,7 +459,7 @@
         // Fonctions de connexion
         function loginAsAdmin() {
             const password = document.getElementById('adminPassword').value;
-            if (password === 'lhss2024') {
+            if (password === 'lhss2020') {
                 isAdmin = true;
                 document.getElementById('statusText').textContent = 'Admin';
                 document.getElementById('statusIndicator').className = 'status-indicator status-admin';
@@ -869,7 +869,7 @@
             // Auto-login si des données existent déjà
             const lastMode = localStorage.getItem('lhss-last-mode');
             if (lastMode === 'admin') {
-                document.getElementById('adminPassword').value = 'lhss2024';
+                document.getElementById('adminPassword').value = 'lhss2020';
             }
         }
     </script>
