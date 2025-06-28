@@ -194,7 +194,7 @@
         }
 
         .player-potential {
-            float: right;
+            display: inline-block;
             background: #fbbf24;
             color: #000;
             padding: 2px 8px;
@@ -204,13 +204,19 @@
         }
 
         .player-precision {
-            float: right;
+            display: inline-block;
             background: #3b82f6;
             color: white;
             padding: 2px 8px;
             border-radius: 4px;
             font-weight: bold;
             margin-left: 5px;
+        }
+
+        .player-stats {
+            float: right;
+            display: flex;
+            gap: 5px;
         }
 
         .draft-result {
@@ -1200,8 +1206,10 @@
             playersListEl.innerHTML = filteredPlayers.map(player => `
                 <div class="player-item ${selectedPlayer?.id === player.id ? 'selected' : ''}" 
                      onclick="selectPlayer(${player.id})">
-                    <div class="player-precision">${player.precision}</div>
-                    <div class="player-potential">${player.potentiel}</div>
+                    <div class="player-stats">
+                        <div class="player-potential">${player.potentiel}</div>
+                        <div class="player-precision">${player.precision}</div>
+                    </div>
                     <div class="player-name">${player.nom}</div>
                     <div class="player-details">${player.position} • ${player.style}</div>
                 </div>
