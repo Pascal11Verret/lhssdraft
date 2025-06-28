@@ -1163,13 +1163,8 @@
                 }
             }
 
-            // Utiliser la configuration par défaut
-            if (defaultConfig.apiKey !== "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms") {
-                initializeFirebaseWithConfig(defaultConfig);
-            } else {
-                // Afficher l'écran de configuration seulement si aucune config par défaut
-                document.getElementById('firebaseSetup').classList.remove('hidden');
-            }
+            // Toujours utiliser la configuration par défaut pour tous les utilisateurs
+            initializeFirebaseWithConfig(defaultConfig);
 
             document.getElementById('searchInput')?.addEventListener('input', updatePlayersList);
             document.getElementById('positionFilter')?.addEventListener('change', updatePlayersList);
