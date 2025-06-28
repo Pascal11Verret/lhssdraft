@@ -1307,9 +1307,23 @@
                 return;
             }
 
-            // Afficher les prochains choix
-            const overallPick = (currentRound - 1) * 26 + currentPick;
-            const nextPicks = draftOrder.filter(order => order.overall >= overallPick).slice(0, 10);
+            // Calculer le choix global actuel
+            const currentOverallPick = (currentRound - 1) * 26 + currentPick;
+            
+            // Filtrer pour avoir seulement les choix qui n'ont pas encore été faits
+            const upcomingPicks = draftOrder.filter(order => {
+                const orderOverallPick = order.overall;
+                return orderOverallPick >= currentOverallPick;
+            }).slice(0, 10); // Prendre seulement les 10 prochains
+
+            if (upcomingPicks.length === 0) {
+                orderEl.innerHTML = `
+                    <div class="loading">
+                        <p>Aucun choix restant dans l'ordre défini</p>
+                    </div>
+                `;
+                return;
+            }
 
             orderEl.innerHTML = `
                 <table class="table">
@@ -1322,14 +1336,17 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${nextPicks.map((order, index) => `
-                            <tr style="${index === 0 ? 'background: rgba(16, 185, 129, 0.2);' : ''}">
-                                <td>${order.overall}</td>
-                                <td>${order.round}</td>
-                                <td>${order.pick}</td>
-                                <td style="font-weight: ${index === 0 ? 'bold' : 'normal'};">${order.team}</td>
-                            </tr>
-                        `).join('')}
+                        ${upcomingPicks.map((order, index) => {
+                            const isCurrentPick = order.overall === currentOverallPick;
+                            return `
+                                <tr style="${isCurrentPick ? 'background: rgba(16, 185, 129, 0.3); border: 2px solid #10b981;' : ''}">
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.overall}</td>
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.round}</td>
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.pick}</td>
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'}; color: ${isCurrentPick ? '#10b981' : 'inherit'};">${order.team}</td>
+                                </tr>
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
             `;
