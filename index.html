@@ -1200,8 +1200,8 @@
             playersListEl.innerHTML = filteredPlayers.map(player => `
                 <div class="player-item ${selectedPlayer?.id === player.id ? 'selected' : ''}" 
                      onclick="selectPlayer(${player.id})">
-                    <div class="player-potential">${player.potentiel}</div>
                     <div class="player-precision">${player.precision}</div>
+                    <div class="player-potential">${player.potentiel}</div>
                     <div class="player-name">${player.nom}</div>
                     <div class="player-details">${player.position} • ${player.style}</div>
                 </div>
