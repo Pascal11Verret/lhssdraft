@@ -324,7 +324,7 @@
     </div>
 
     <!-- Configuration Firebase -->
-    <div id="firebaseSetup" class="login-form">
+    <div id="firebaseSetup" class="login-form hidden">
         <h2>🔧 Configuration Firebase</h2>
         <div class="firebase-setup">
             <h3>Instructions de configuration :</h3>
@@ -351,8 +351,12 @@
             🚀 Initialiser Firebase
         </button>
         
-        <button onclick="useLocalMode()" class="btn btn-warning" style="width: 100%;">
+        <button onclick="useLocalMode()" class="btn btn-warning" style="width: 100%; margin-bottom: 10px;">
             📱 Mode Local (sans synchronisation)
+        </button>
+        
+        <button onclick="showLoginForm()" class="btn btn-primary" style="width: 100%;">
+            ← Retour à la connexion
         </button>
         
         <div style="margin-top: 15px; font-size: 0.8rem; color: #9ca3af;">
@@ -361,7 +365,7 @@
     </div>
 
     <!-- Login Form -->
-    <div id="loginForm" class="login-form hidden">
+    <div id="loginForm" class="login-form">
         <h2>🏒 Repêchage LHSS 2020</h2>
         
         <div id="connectionStatus" class="connection-status connecting">
@@ -383,6 +387,10 @@
         
         <button onclick="loginAsViewer()" class="btn btn-success" style="width: 100%;">
             Accès Spectateur (Lecture seule)
+        </button>
+        
+        <button onclick="showFirebaseConfig()" class="btn btn-warning" style="width: 100%; margin-top: 10px; font-size: 0.9rem;">
+            ⚙️ Configuration Firebase (Admin uniquement)
         </button>
         
         <div style="margin-top: 20px; font-size: 0.8rem; color: #9ca3af;">
@@ -599,6 +607,11 @@
             useLocalStorage = true;
             localStorage.setItem('use-local-mode', 'true');
             showLoginForm();
+        }
+
+        function showFirebaseConfig() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('firebaseSetup').classList.remove('hidden');
         }
 
         function showLoginForm() {
@@ -1117,6 +1130,18 @@
             a.click();
         }
 
+        // Configuration Firebase par défaut (remplacez par la vôtre)
+        const defaultConfig = {
+            "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
+            "authDomain": "lhssdraft.firebaseapp.com",
+            "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
+            "projectId": "lhssdraft",
+            "storageBucket": "lhssdraft.firebasestorage.app",
+            "messagingSenderId": "441205645400",
+            "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
+            "measurementId": "G-N7RN68KTND"
+        };
+
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
             // Vérifier s'il y a une configuration Firebase sauvegardée
@@ -1129,10 +1154,21 @@
             }
             
             if (savedConfig) {
-                document.getElementById('firebaseConfig').value = savedConfig;
-                // Auto-initialiser Firebase
-                initializeFirebase();
-                return;
+                try {
+                    const config = JSON.parse(savedConfig);
+                    initializeFirebaseWithConfig(config);
+                    return;
+                } catch (error) {
+                    console.error('Erreur de configuration sauvegardée:', error);
+                }
+            }
+
+            // Utiliser la configuration par défaut
+            if (defaultConfig.apiKey !== "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms") {
+                initializeFirebaseWithConfig(defaultConfig);
+            } else {
+                // Afficher l'écran de configuration seulement si aucune config par défaut
+                document.getElementById('firebaseSetup').classList.remove('hidden');
             }
 
             document.getElementById('searchInput')?.addEventListener('input', updatePlayersList);
@@ -1141,6 +1177,19 @@
                 selectedTeam = e.target.value;
             });
         });
+
+        function initializeFirebaseWithConfig(config) {
+            try {
+                firebaseApp = firebase.initializeApp(config);
+                database = firebase.database();
+                setupRealtimeListeners();
+                showLoginForm();
+            } catch (error) {
+                console.error('Erreur Firebase:', error);
+                // En cas d'erreur, basculer en mode local
+                useLocalMode();
+            }
+        }
     </script>
 </body>
 </html>
