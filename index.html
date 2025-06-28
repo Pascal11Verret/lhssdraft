@@ -625,7 +625,7 @@
         <!-- Viewer info with timer -->
         <div id="viewerInfo" class="hidden" style="text-align: center; margin-bottom: 20px; color: #9ca3af;">
             <p>Mode spectateur - Les données se synchronisent automatiquement en temps réel</p>
-            <p style="font-size: 0.9rem; margin-top: 5px;">💡 Cliquez sur un joueur pour voir ses détails</p>
+            <p style="font-size: 0.9rem; margin-top: 5px;">💡 Cliquez sur un joueur pour voir ses détails. Utilisez les filtres pour naviguer plus facilement.</p>
             <div class="timer-display" style="background: rgba(31, 41, 55, 1); padding: 15px; border-radius: 8px; margin-top: 15px;">
                 <h3 style="margin-bottom: 10px; color: #fbbf24;">⏱️ Temps Restant</h3>
                 <div id="timerDisplayViewer" style="font-size: 2rem; font-weight: bold; color: #60a5fa;">05:00</div>
@@ -663,7 +663,8 @@
                     👥 Joueurs Disponibles (<span id="availableCount">0</span>)
                 </h2>
                 
-                <div id="adminSearchFilters" class="hidden">
+                <!-- Filtres disponibles pour tous les utilisateurs -->
+                <div id="searchFilters">
                     <input type="text" id="searchInput" placeholder="Rechercher un joueur..." class="search-input">
                     <select id="positionFilter" class="select-input">
                         <option value="">Toutes les positions</option>
@@ -1079,11 +1080,8 @@
             
             if (isAdmin) {
                 document.getElementById('adminControls').classList.remove('hidden');
-                document.getElementById('adminSearchFilters').classList.remove('hidden');
             } else {
                 document.getElementById('viewerInfo').classList.remove('hidden');
-                // En mode spectateur, garder le panel des détails mais sans les filtres de recherche
-                document.getElementById('adminSearchFilters').style.display = 'none';
             }
             
             loadData();
