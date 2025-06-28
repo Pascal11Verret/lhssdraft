@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repêchage LHSS 2024</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 50%, #dc2626 100%);
+            color: white;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            background: linear-gradient(45deg, #fbbf24, #f97316);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .login-form {
+            max-width: 400px;
+            margin: 50px auto;
+            background: rgba(31, 41, 55, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            color: white;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary { background: linear-gradient(45deg, #3b82f6, #8b5cf6); }
+        .btn-success { background: linear-gradient(45deg, #10b981, #059669); }
+        .btn-danger { background: linear-gradient(45deg, #ef4444, #dc2626); }
+        .btn-warning { background: linear-gradient(45deg, #f59e0b, #d97706); }
+
+        .btn:hover { transform: translateY(-2px); }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; }
+        }
+
+        .panel {
+            background: rgba(31, 41, 55, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .panel h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-input, .select-input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(55, 65, 81, 1);
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .search-input:focus, .select-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .player-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .player-item {
+            background: rgba(55, 65, 81, 1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .player-item:hover {
+            background: rgba(75, 85, 99, 1);
+        }
+
+        .player-item.selected {
+            background: #3b82f6;
+            border-color: #60a5fa;
+        }
+
+        .player-item.drafted {
+            opacity: 0.5;
+            background: rgba(55, 65, 81, 0.5);
+            cursor: not-allowed;
+        }
+
+        .player-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .player-details {
+            color: #d1d5db;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .player-potential {
+            float: right;
+            background: #fbbf24;
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .draft-result {
+            background: rgba(55, 65, 81, 1);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+
+        .team-selector {
+            background: rgba(31, 41, 55, 1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+
+        .spinner {
+            border: 3px solid #374151;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            z-index: 1000;
+        }
+
+        .status-admin {
+            background: #10b981;
+        }
+
+        .status-viewer {
+            background: #3b82f6;
+        }
+
+        .export-data {
+            display: none;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .table th, .table td {
+            padding: 8px;
+            border: 1px solid #4b5563;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        .table th {
+            background: rgba(55, 65, 81, 1);
+            font-weight: bold;
+        }
+
+        .auto-refresh {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Status Indicator -->
+    <div id="statusIndicator" class="status-indicator">
+        <span id="statusText">Spectateur</span>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginForm" class="login-form">
+        <h2>🏒 Repêchage LHSS 2024</h2>
+        <p style="margin-bottom: 20px; color: #9ca3af;">
+            Choisissez votre mode d'accès
+        </p>
+        
+        <div style="margin-bottom: 20px;">
+            <input type="password" id="adminPassword" placeholder="Mot de passe admin" 
+                   class="search-input" style="margin-bottom: 10px;">
+            <button onclick="loginAsAdmin()" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
+                Connexion Admin
+            </button>
+        </div>
+        
+        <button onclick="loginAsViewer()" class="btn btn-success" style="width: 100%;">
+            Accès Spectateur (Lecture seule)
+        </button>
+        
+        <div style="margin-top: 20px; font-size: 0.8rem; color: #9ca3af;">
+            <strong>Mode Admin:</strong> Mot de passe = "lhss2024"<br>
+            <strong>Mode Spectateur:</strong> Voir les résultats en temps réel
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="container hidden">
+        <div class="header">
+            <h1>🏒 Repêchage LHSS 2024</h1>
+            <p id="roundInfo">Ronde 1 - Choix #1</p>
+        </div>
+
+        <!-- Controls -->
+        <div id="adminControls" class="controls hidden">
+            <button onclick="exportToCSV()" class="btn btn-success">
+                💾 Exporter CSV
+            </button>
+            
+            <label class="btn btn-primary">
+                📁 Importer CSV
+                <input type="file" accept=".csv" onchange="importPlayers(event)" style="display: none;">
+            </label>
+            
+            <button onclick="resetDraft()" class="btn btn-danger">
+                🔄 Réinitialiser
+            </button>
+            
+            <div class="team-selector">
+                <label style="margin-right: 10px;">Équipe:</label>
+                <select id="teamSelect" class="select-input" style="width: auto; margin: 0;">
+                    <option value="Capitals">Capitals</option>
+                    <option value="Flyers">Flyers</option>
+                    <option value="Ducks">Ducks</option>
+                    <option value="Panthers">Panthers</option>
+                    <option value="Sabres">Sabres</option>
+                    <option value="Jets">Jets</option>
+                    <option value="Oilers">Oilers</option>
+                    <option value="Stars">Stars</option>
+                    <option value="Blackhawks">Blackhawks</option>
+                    <option value="Blues">Blues</option>
+                    <option value="Sharks">Sharks</option>
+                    <option value="Rangers">Rangers</option>
+                    <option value="Canadiens">Canadiens</option>
+                    <option value="Maple Leafs">Maple Leafs</option>
+                    <option value="Bruins">Bruins</option>
+                    <option value="Predators">Predators</option>
+                    <option value="Devils">Devils</option>
+                    <option value="Kraken">Kraken</option>
+                    <option value="Islanders">Islanders</option>
+                    <option value="Flames">Flames</option>
+                    <option value="Senators">Senators</option>
+                    <option value="Canucks">Canucks</option>
+                    <option value="Lightning">Lightning</option>
+                    <option value="Red Wings">Red Wings</option>
+                    <option value="Avalanche">Avalanche</option>
+                    <option value="Penguins">Penguins</option>
+                </select>
+            </div>
+            
+            <button onclick="skipPick()" class="btn btn-warning" id="skipBtn">
+                ⏭️ Passer le tour
+            </button>
+            
+            <div style="background: rgba(31, 41, 55, 1); padding: 10px 15px; border-radius: 8px; font-size: 0.9rem;">
+                <span id="playerCount">Joueurs disponibles: 0 / 0</span>
+            </div>
+        </div>
+
+        <!-- Viewer refresh info -->
+        <div id="viewerInfo" class="hidden" style="text-align: center; margin-bottom: 20px; color: #9ca3af;">
+            <p>Mode spectateur - Les données se mettent à jour automatiquement</p>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid">
+            <!-- Players Panel -->
+            <div id="playersPanel" class="panel">
+                <h2>
+                    👥 Joueurs Disponibles (<span id="availableCount">0</span>)
+                </h2>
+                
+                <div id="adminSearchFilters" class="hidden">
+                    <input type="text" id="searchInput" placeholder="Rechercher un joueur..." class="search-input">
+                    <select id="positionFilter" class="select-input">
+                        <option value="">Toutes les positions</option>
+                    </select>
+                </div>
+                
+                <div id="playersLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Chargement des joueurs...</p>
+                </div>
+                
+                <div id="playersList" class="player-list"></div>
+            </div>
+
+            <!-- Player Details -->
+            <div id="playerDetailsPanel" class="panel">
+                <h2>📋 Détails du Joueur</h2>
+                <div id="playerDetails">
+                    <div class="loading">
+                        <p>Sélectionnez un joueur pour voir ses détails</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Draft Results -->
+            <div class="panel">
+                <h2>🏆 Résultats du Repêchage</h2>
+                <div id="draftResults">
+                    <div class="loading">
+                        <p>Aucun joueur repêché</p>
+                    </div>
+                </div>
+                <div class="auto-refresh">
+                    Mise à jour automatique toutes les 5 secondes
+                </div>
+            </div>
+        </div>
+
+        <!-- Draft Summary Table -->
+        <div id="draftSummary" class="panel" style="margin-top: 30px;">
+            <h2>📊 Tableau Récapitulatif</h2>
+            <div id="summaryTable"></div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let players = [];
+        let draftResults = [];
+        let selectedPlayer = null;
+        let currentRound = 1;
+        let currentPick = 1;
+        let isAdmin = false;
+        let selectedTeam = 'Capitals';
+
+        // Données initiales (backup)
+        const defaultPlayers = [
+            {
+                id: 1,
+                nom: "Tim Stützle",
+                position: "C",
+                age: 18,
+                poids: 187,
+                taille: "6'0\"",
+                potentiel: 9,
+                style: "Fabriquant de jeux",
+                precision: "B",
+                commentaire: "Excellent patineur avec des mains exceptionnelles",
+                drafted: false
+            },
+            {
+                id: 2,
+                nom: "Quinton Byfield",
+                position: "C",
+                age: 18,
+                poids: 220,
+                taille: "6'5\"",
+                potentiel: 8.5,
+                style: "Attaquant Opportuniste",
+                precision: "B",
+                commentaire: "Grand centre dominant physiquement avec d'excellentes habiletés",
+                drafted: false
+            }
+        ];
+
+        // Fonctions de connexion
+        function loginAsAdmin() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === 'lhss2024') {
+                isAdmin = true;
+                document.getElementById('statusText').textContent = 'Admin';
+                document.getElementById('statusIndicator').className = 'status-indicator status-admin';
+                showMainApp();
+            } else {
+                alert('Mot de passe incorrect!');
+            }
+        }
+
+        function loginAsViewer() {
+            isAdmin = false;
+            document.getElementById('statusText').textContent = 'Spectateur';
+            document.getElementById('statusIndicator').className = 'status-indicator status-viewer';
+            showMainApp();
+        }
+
+        function showMainApp() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            
+            if (isAdmin) {
+                document.getElementById('adminControls').classList.remove('hidden');
+                document.getElementById('adminSearchFilters').classList.remove('hidden');
+            } else {
+                document.getElementById('viewerInfo').classList.remove('hidden');
+                // En mode spectateur, masquer le panel des détails du joueur
+                document.getElementById('playerDetailsPanel').style.display = 'none';
+                // Ajuster la grille pour 2 colonnes
+                document.querySelector('.grid').style.gridTemplateColumns = '1fr 1fr';
+            }
+            
+            loadData();
+            updateInterface();
+            
+            if (!isAdmin) {
+                // Auto-refresh pour les spectateurs
+                setInterval(loadData, 5000);
+            }
+        }
+
+        // Gestion des données
+        function loadData() {
+            const savedPlayers = localStorage.getItem('lhss-players');
+            const savedDraft = localStorage.getItem('lhss-draft');
+            const savedRound = localStorage.getItem('lhss-round');
+            const savedPick = localStorage.getItem('lhss-pick');
+
+            if (savedPlayers) {
+                players = JSON.parse(savedPlayers);
+            } else {
+                players = [...defaultPlayers];
+                saveData();
+            }
+
+            if (savedDraft) {
+                draftResults = JSON.parse(savedDraft);
+            }
+
+            if (savedRound) {
+                currentRound = parseInt(savedRound);
+            }
+
+            if (savedPick) {
+                currentPick = parseInt(savedPick);
+            }
+
+            updateInterface();
+        }
+
+        function saveData() {
+            localStorage.setItem('lhss-players', JSON.stringify(players));
+            localStorage.setItem('lhss-draft', JSON.stringify(draftResults));
+            localStorage.setItem('lhss-round', currentRound.toString());
+            localStorage.setItem('lhss-pick', currentPick.toString());
+        }
+
+        // Interface
+        function updateInterface() {
+            updateRoundInfo();
+            updatePlayersList();
+            updateDraftResults();
+            updatePlayerCount();
+            updateSummaryTable();
+        }
+
+        function updateRoundInfo() {
+            document.getElementById('roundInfo').textContent = `Ronde ${currentRound} - Choix #${currentPick}`;
+            
+            if (currentRound > 5) {
+                document.getElementById('skipBtn').style.display = 'none';
+            }
+        }
+
+        function updatePlayersList() {
+            const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+            const positionFilter = document.getElementById('positionFilter')?.value || '';
+            
+            const filteredPlayers = players.filter(player => {
+                if (player.drafted) return false;
+                
+                const matchesSearch = player.nom.toLowerCase().includes(searchTerm) ||
+                                    player.style.toLowerCase().includes(searchTerm);
+                const matchesPosition = positionFilter === '' || player.position === positionFilter;
+                
+                return matchesSearch && matchesPosition;
+            });
+
+            const playersListEl = document.getElementById('playersList');
+            const loadingEl = document.getElementById('playersLoading');
+            
+            if (players.length === 0) {
+                loadingEl.style.display = 'block';
+                playersListEl.innerHTML = '';
+                return;
+            }
+            
+            loadingEl.style.display = 'none';
+            
+            if (filteredPlayers.length === 0) {
+                playersListEl.innerHTML = '<div class="loading"><p>Aucun joueur trouvé</p></div>';
+                return;
+            }
+
+            playersListEl.innerHTML = filteredPlayers.map(player => `
+                <div class="player-item ${selectedPlayer?.id === player.id ? 'selected' : ''}" 
+                     onclick="${isAdmin ? `selectPlayer(${player.id})` : ''}">
+                    <div class="player-potential">${player.potentiel}</div>
+                    <div class="player-name">${player.nom}</div>
+                    <div class="player-details">${player.position} • ${player.style}</div>
+                </div>
+            `).join('');
+
+            // Mettre à jour le filtre des positions
+            const positions = [...new Set(players.map(p => p.position))].filter(Boolean).sort();
+            const positionFilterEl = document.getElementById('positionFilter');
+            if (positionFilterEl) {
+                positionFilterEl.innerHTML = '<option value="">Toutes les positions</option>' +
+                    positions.map(pos => `<option value="${pos}">${pos}</option>`).join('');
+            }
+
+            document.getElementById('availableCount').textContent = filteredPlayers.length;
+        }
+
+        function updatePlayerCount() {
+            const available = players.filter(p => !p.drafted).length;
+            const total = players.length;
+            document.getElementById('playerCount').textContent = `Joueurs disponibles: ${available} / ${total}`;
+        }
+
+        function updateDraftResults() {
+            const resultsEl = document.getElementById('draftResults');
+            
+            if (draftResults.length === 0) {
+                resultsEl.innerHTML = '<div class="loading"><p>Aucun joueur repêché</p></div>';
+                return;
+            }
+
+            resultsEl.innerHTML = draftResults.slice(-10).reverse().map(player => `
+                <div class="draft-result">
+                    <div>
+                        <div style="font-weight: bold;">${player.nom}</div>
+                        <div style="font-size: 0.85rem; color: #9ca3af;">
+                            ${player.position} • Pot: ${player.potentiel} • ${player.team}
+                        </div>
+                        <div style="font-size: 0.8rem; color: #fbbf24;">
+                            #${player.overallPick} (R${player.round}-${player.roundPick})
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateSummaryTable() {
+            const summaryEl = document.getElementById('summaryTable');
+            
+            if (draftResults.length === 0) {
+                summaryEl.innerHTML = '<p>Aucun repêchage effectué</p>';
+                return;
+            }
+
+            summaryEl.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Ronde</th>
+                            <th>Choix Global</th>
+                            <th>Équipe</th>
+                            <th>Joueur</th>
+                            <th>Position</th>
+                            <th>Potentiel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${draftResults.map(player => `
+                            <tr>
+                                <td>${player.round}</td>
+                                <td>${player.overallPick}</td>
+                                <td>${player.team}</td>
+                                <td>${player.nom}</td>
+                                <td>${player.position}</td>
+                                <td>${player.potentiel}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Actions admin
+        function selectPlayer(playerId) {
+            if (!isAdmin) return;
+            
+            selectedPlayer = players.find(p => p.id === playerId);
+            updatePlayersList();
+            updatePlayerDetails();
+        }
+
+        function updatePlayerDetails() {
+            const detailsEl = document.getElementById('playerDetails');
+            
+            if (!selectedPlayer) {
+                detailsEl.innerHTML = '<div class="loading"><p>Sélectionnez un joueur pour voir ses détails</p></div>';
+                return;
+            }
+
+            detailsEl.innerHTML = `
+                <div style="background: rgba(55, 65, 81, 1); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="color: #fbbf24; margin-bottom: 15px;">${selectedPlayer.nom}</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                        <div><span style="color: #9ca3af;">Position:</span> ${selectedPlayer.position}</div>
+                        <div><span style="color: #9ca3af;">Âge:</span> ${selectedPlayer.age} ans</div>
+                        <div><span style="color: #9ca3af;">Taille:</span> ${selectedPlayer.taille}</div>
+                        <div><span style="color: #9ca3af;">Poids:</span> ${selectedPlayer.poids} lbs</div>
+                        <div><span style="color: #9ca3af;">Potentiel:</span> <span style="color: #fbbf24; font-weight: bold;">${selectedPlayer.potentiel}/9</span></div>
+                        <div><span style="color: #9ca3af;">Précision:</span> ${selectedPlayer.precision}</div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <span style="color: #9ca3af;">Style:</span> <span style="color: #60a5fa;">${selectedPlayer.style}</span>
+                    </div>
+                    <div>
+                        <span style="color: #9ca3af;">Commentaire:</span>
+                        <p style="margin-top: 5px; line-height: 1.4;">${selectedPlayer.commentaire}</p>
+                    </div>
+                </div>
+                
+                ${currentRound <= 5 ? `
+                    <button onclick="draftPlayer()" class="btn btn-primary" style="width: 100%; padding: 15px; font-size: 1.1rem;">
+                        Repêcher avec ${selectedTeam}
+                        <br>
+                        <span style="font-size: 0.9rem;">Ronde ${currentRound}, Choix #${(currentRound - 1) * 26 + currentPick}</span>
+                    </button>
+                ` : ''}
+            `;
+        }
+
+        function draftPlayer() {
+            if (!isAdmin || !selectedPlayer || currentRound > 5) return;
+
+            selectedTeam = document.getElementById('teamSelect').value;
+            
+            const draftedPlayer = {
+                ...selectedPlayer,
+                round: currentRound,
+                overallPick: (currentRound - 1) * 26 + currentPick,
+                team: selectedTeam,
+                roundPick: currentPick
+            };
+
+            draftResults.push(draftedPlayer);
+            
+            // Marquer le joueur comme repêché
+            const playerIndex = players.findIndex(p => p.id === selectedPlayer.id);
+            if (playerIndex !== -1) {
+                players[playerIndex].drafted = true;
+            }
+
+            // Avancer au prochain choix
+            if (currentPick < 26) {
+                currentPick++;
+            } else {
+                currentPick = 1;
+                currentRound++;
+            }
+
+            selectedPlayer = null;
+            saveData();
+            updateInterface();
+        }
+
+        function skipPick() {
+            if (!isAdmin || currentRound > 5) return;
+
+            if (currentPick < 26) {
+                currentPick++;
+            } else {
+                currentPick = 1;
+                currentRound++;
+            }
+
+            saveData();
+            updateInterface();
+        }
+
+        function resetDraft() {
+            if (!isAdmin) return;
+            
+            if (confirm('Êtes-vous sûr de vouloir réinitialiser le repêchage?')) {
+                draftResults = [];
+                currentRound = 1;
+                currentPick = 1;
+                selectedTeam = 'Capitals';
+                
+                players = players.map(p => ({ ...p, drafted: false }));
+                selectedPlayer = null;
+                
+                document.getElementById('teamSelect').value = selectedTeam;
+                
+                saveData();
+                updateInterface();
+            }
+        }
+
+        function importPlayers(event) {
+            if (!isAdmin) return;
+            
+            const file = event.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    try {
+                        const playerData = results.data.map((row, index) => ({
+                            id: index + 1,
+                            nom: row.Nom || row.nom || '',
+                            position: row.Position || row.position || '',
+                            age: parseInt(row.Age || row.age) || 0,
+                            poids: parseInt(row.Poids || row.poids) || 0,
+                            taille: row.Taille || row.taille || '',
+                            potentiel: parseFloat(row.Potentiel || row.potentiel) || 0,
+                            style: row.Style || row.style || '',
+                            precision: row.Précision || row.precision || '',
+                            commentaire: row.Commentaire || row.commentaire || '',
+                            drafted: false
+                        })).filter(player => player.nom !== '');
+
+                        playerData.sort((a, b) => b.potentiel - a.potentiel);
+                        
+                        players = playerData;
+                        selectedPlayer = null;
+                        
+                        saveData();
+                        updateInterface();
+                        
+                        alert(`${playerData.length} joueurs importés avec succès!`);
+                    } catch (error) {
+                        alert('Erreur lors de l\'importation du fichier CSV');
+                    }
+                }
+            });
+            
+            event.target.value = '';
+        }
+
+        function exportToCSV() {
+            if (draftResults.length === 0) {
+                alert('Aucun joueur repêché à exporter!');
+                return;
+            }
+
+            const headers = ['Ronde', 'Choix Global', 'Choix de Ronde', 'Équipe', 'Joueur', 'Position', 'Potentiel', 'Style'];
+            const csvContent = [
+                headers.join(','),
+                ...draftResults.map(player => [
+                    player.round,
+                    player.overallPick,
+                    player.roundPick,
+                    player.team,
+                    `"${player.nom}"`,
+                    player.position,
+                    player.potentiel,
+                    `"${player.style}"`
+                ].join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `repechage_lhss_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('searchInput')?.addEventListener('input', updatePlayersList);
+            document.getElementById('positionFilter')?.addEventListener('change', updatePlayersList);
+            document.getElementById('teamSelect')?.addEventListener('change', function(e) {
+                selectedTeam = e.target.value;
+            });
+        });
+
+        // Initialisation
+        if (localStorage.getItem('lhss-players')) {
+            // Auto-login si des données existent déjà
+            const lastMode = localStorage.getItem('lhss-last-mode');
+            if (lastMode === 'admin') {
+                document.getElementById('adminPassword').value = 'lhss2024';
+            }
+        }
+    </script>
+</body>
+</html>
