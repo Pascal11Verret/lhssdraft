@@ -288,6 +288,49 @@
             margin-top: 10px;
         }
 
+        .timer-controls {
+            background: rgba(31, 41, 55, 1);
+            border: 2px solid #4b5563;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .timer-controls h3 {
+            text-align: center;
+        }
+
+        .timer-display {
+            text-align: center;
+        }
+
+        .timer-controls .btn {
+            font-size: 0.8rem;
+            padding: 8px 12px;
+        }
+
+        #draftOrderPanel {
+            background: rgba(31, 41, 55, 0.95);
+            border: 1px solid #4b5563;
+        }
+
+        #currentPicker {
+            border: 2px solid #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { border-color: #10b981; }
+            50% { border-color: #34d399; }
+        }
+
+        .expired-timer {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
         .hidden {
             display: none !important;
         }
@@ -426,13 +469,32 @@
 
         <!-- Controls -->
         <div id="adminControls" class="controls hidden">
+            <!-- Timer Controls -->
+            <div class="timer-controls" style="background: rgba(31, 41, 55, 1); padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                <h3 style="margin-bottom: 10px; color: #fbbf24;">⏱️ Compte à Rebours</h3>
+                <div id="timerDisplay" style="font-size: 2rem; font-weight: bold; color: #60a5fa; margin-bottom: 10px;">05:00</div>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px;">
+                    <input type="number" id="timerMinutes" placeholder="Minutes" min="1" max="60" value="5" 
+                           style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <button onclick="setTimer()" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.9rem;">Définir</button>
+                    <button onclick="startTimer()" class="btn btn-success" style="padding: 5px 10px; font-size: 0.9rem;" id="startTimerBtn">Start</button>
+                    <button onclick="pauseTimer()" class="btn btn-warning" style="padding: 5px 10px; font-size: 0.9rem;" id="pauseTimerBtn">Pause</button>
+                    <button onclick="resetTimer()" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.9rem;">Reset</button>
+                </div>
+            </div>
+
             <button onclick="exportToCSV()" class="btn btn-success">
                 💾 Exporter CSV
             </button>
             
             <label class="btn btn-primary">
-                📁 Importer CSV
+                📁 Importer Joueurs CSV
                 <input type="file" accept=".csv" onchange="importPlayers(event)" style="display: none;">
+            </label>
+            
+            <label class="btn btn-warning">
+                📋 Importer Ordre CSV
+                <input type="file" accept=".csv" onchange="importDraftOrder(event)" style="display: none;">
             </label>
             
             <button onclick="resetDraft()" class="btn btn-danger">
@@ -480,10 +542,37 @@
             </div>
         </div>
 
-        <!-- Viewer refresh info -->
+        <!-- Viewer info with timer -->
         <div id="viewerInfo" class="hidden" style="text-align: center; margin-bottom: 20px; color: #9ca3af;">
             <p>Mode spectateur - Les données se synchronisent automatiquement en temps réel</p>
             <p style="font-size: 0.9rem; margin-top: 5px;">💡 Cliquez sur un joueur pour voir ses détails</p>
+            <div class="timer-display" style="background: rgba(31, 41, 55, 1); padding: 15px; border-radius: 8px; margin-top: 15px;">
+                <h3 style="margin-bottom: 10px; color: #fbbf24;">⏱️ Temps Restant</h3>
+                <div id="timerDisplayViewer" style="font-size: 2rem; font-weight: bold; color: #60a5fa;">05:00</div>
+                <div id="timerStatusViewer" style="font-size: 0.9rem; color: #9ca3af; margin-top: 5px;">En attente</div>
+            </div>
+        </div>
+
+        <!-- Draft Order Panel -->
+        <div id="draftOrderPanel" class="panel" style="margin-bottom: 20px;">
+            <h2>📋 Ordre de Repêchage</h2>
+            <div id="currentPicker" style="background: rgba(55, 65, 81, 1); padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                <h3 style="color: #fbbf24; margin-bottom: 5px;">Tour Actuel</h3>
+                <div style="font-size: 1.2rem; font-weight: bold; color: #60a5fa;" id="currentPickerText">
+                    Ronde 1 - Choix #1
+                </div>
+                <div style="font-size: 1rem; color: #10b981; margin-top: 5px;" id="currentTeamText">
+                    En attente de l'ordre...
+                </div>
+            </div>
+            <div id="draftOrderTable">
+                <div class="loading">
+                    <p>Importez un fichier CSV avec l'ordre de repêchage</p>
+                    <div style="margin-top: 10px; font-size: 0.8rem; color: #9ca3af;">
+                        Format: Ronde, Choix, Équipe
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Main Grid -->
@@ -544,6 +633,7 @@
         // Variables globales
         let players = [];
         let draftResults = [];
+        let draftOrder = []; // Nouveau: ordre de repêchage
         let selectedPlayer = null;
         let currentRound = 1;
         let currentPick = 1;
@@ -553,6 +643,12 @@
         let firebaseApp = null;
         let isConnected = false;
         let useLocalStorage = false;
+        
+        // Variables pour le compte à rebours
+        let timerDuration = 300; // 5 minutes par défaut (en secondes)
+        let timerRemaining = 300;
+        let timerActive = false;
+        let timerInterval = null;
 
         // Configuration Firebase par défaut (à remplacer)
         const defaultFirebaseConfig = {
@@ -663,13 +759,40 @@
                 }
             });
 
-            // Listener pour la ronde actuelle
+            // Listener pour l'ordre de repêchage
+            database.ref('draftOrder').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    draftOrder = data;
+                    updateInterface();
+                }
+            });
+
+            // Listener pour l'état du jeu
             database.ref('gameState').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     currentRound = data.currentRound || 1;
                     currentPick = data.currentPick || 1;
                     updateInterface();
+                }
+            });
+
+            // Listener pour le timer
+            database.ref('timer').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    timerDuration = data.duration || 300;
+                    timerRemaining = data.remaining || 300;
+                    timerActive = data.active || false;
+                    
+                    if (!isAdmin && timerActive && !timerInterval) {
+                        startLocalTimer();
+                    } else if (!timerActive && timerInterval) {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                    }
+                    updateTimerDisplay();
                 }
             });
 
@@ -714,12 +837,140 @@
                     // Initialiser avec les données par défaut
                     database.ref('players').set(defaultPlayers);
                     database.ref('draftResults').set([]);
+                    database.ref('draftOrder').set([]);
                     database.ref('gameState').set({
                         currentRound: 1,
                         currentPick: 1
                     });
+                    database.ref('timer').set({
+                        duration: 300,
+                        remaining: 300,
+                        active: false
+                    });
                 }
             });
+        }
+
+        // Fonctions du compte à rebours
+        function setTimer() {
+            const minutes = parseInt(document.getElementById('timerMinutes').value) || 5;
+            timerDuration = minutes * 60;
+            timerRemaining = timerDuration;
+            timerActive = false;
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            updateTimerDisplay();
+            saveTimerState();
+        }
+
+        function startTimer() {
+            if (!isAdmin) return;
+            
+            timerActive = true;
+            saveTimerState();
+            
+            if (!timerInterval) {
+                startLocalTimer();
+            }
+        }
+
+        function pauseTimer() {
+            if (!isAdmin) return;
+            
+            timerActive = false;
+            saveTimerState();
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function resetTimer() {
+            if (!isAdmin) return;
+            
+            timerActive = false;
+            timerRemaining = timerDuration;
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            updateTimerDisplay();
+            saveTimerState();
+        }
+
+        function startLocalTimer() {
+            if (timerInterval) return;
+            
+            timerInterval = setInterval(() => {
+                if (timerRemaining > 0) {
+                    timerRemaining--;
+                    updateTimerDisplay();
+                    
+                    // Sauvegarder l'état seulement si admin
+                    if (isAdmin) {
+                        saveTimerState();
+                    }
+                } else {
+                    // Temps écoulé
+                    timerActive = false;
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    
+                    if (isAdmin) {
+                        saveTimerState();
+                        alert('⏰ Temps écoulé ! Le choix doit être fait.');
+                    }
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timerRemaining / 60);
+            const seconds = timerRemaining % 60;
+            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Mettre à jour l'affichage admin
+            const adminDisplay = document.getElementById('timerDisplay');
+            if (adminDisplay) {
+                adminDisplay.textContent = timeString;
+                adminDisplay.style.color = timerRemaining <= 30 ? '#ef4444' : '#60a5fa';
+            }
+            
+            // Mettre à jour l'affichage spectateur
+            const viewerDisplay = document.getElementById('timerDisplayViewer');
+            const viewerStatus = document.getElementById('timerStatusViewer');
+            if (viewerDisplay) {
+                viewerDisplay.textContent = timeString;
+                viewerDisplay.style.color = timerRemaining <= 30 ? '#ef4444' : '#60a5fa';
+            }
+            if (viewerStatus) {
+                viewerStatus.textContent = timerActive ? 'En cours...' : 'En pause';
+                viewerStatus.style.color = timerActive ? '#10b981' : '#9ca3af';
+            }
+        }
+
+        function saveTimerState() {
+            if (useLocalStorage) {
+                localStorage.setItem('timer-state', JSON.stringify({
+                    duration: timerDuration,
+                    remaining: timerRemaining,
+                    active: timerActive
+                }));
+            } else if (database && isAdmin) {
+                database.ref('timer').set({
+                    duration: timerDuration,
+                    remaining: timerRemaining,
+                    active: timerActive
+                });
+            }
         }
 
         // Fonctions de connexion
@@ -764,8 +1015,10 @@
             if (useLocalStorage) {
                 const savedPlayers = localStorage.getItem('lhss-players');
                 const savedDraft = localStorage.getItem('lhss-draft');
+                const savedOrder = localStorage.getItem('lhss-order');
                 const savedRound = localStorage.getItem('lhss-round');
                 const savedPick = localStorage.getItem('lhss-pick');
+                const savedTimer = localStorage.getItem('timer-state');
 
                 if (savedPlayers) {
                     players = JSON.parse(savedPlayers);
@@ -778,12 +1031,23 @@
                     draftResults = JSON.parse(savedDraft);
                 }
 
+                if (savedOrder) {
+                    draftOrder = JSON.parse(savedOrder);
+                }
+
                 if (savedRound) {
                     currentRound = parseInt(savedRound);
                 }
 
                 if (savedPick) {
                     currentPick = parseInt(savedPick);
+                }
+
+                if (savedTimer) {
+                    const timerState = JSON.parse(savedTimer);
+                    timerDuration = timerState.duration || 300;
+                    timerRemaining = timerState.remaining || 300;
+                    timerActive = timerState.active || false;
                 }
 
                 updateInterface();
@@ -795,12 +1059,14 @@
             if (useLocalStorage) {
                 localStorage.setItem('lhss-players', JSON.stringify(players));
                 localStorage.setItem('lhss-draft', JSON.stringify(draftResults));
+                localStorage.setItem('lhss-order', JSON.stringify(draftOrder));
                 localStorage.setItem('lhss-round', currentRound.toString());
                 localStorage.setItem('lhss-pick', currentPick.toString());
             } else if (database && isAdmin) {
                 // Sauvegarder dans Firebase (seulement les admins peuvent modifier)
                 database.ref('players').set(players);
                 database.ref('draftResults').set(draftResults);
+                database.ref('draftOrder').set(draftOrder);
                 database.ref('gameState').set({
                     currentRound: currentRound,
                     currentPick: currentPick
@@ -815,6 +1081,8 @@
             updateDraftResults();
             updatePlayerCount();
             updateSummaryTable();
+            updateDraftOrder();
+            updateTimerDisplay();
         }
 
         function updateRoundInfo() {
@@ -944,7 +1212,128 @@
             `;
         }
 
-        // Actions admin et spectateur
+        // Gestion de l'ordre de repêchage
+        function importDraftOrder(event) {
+            if (!isAdmin) return;
+            if (!isConnected && !useLocalStorage) {
+                alert('Connexion perdue! Impossible d\'importer.');
+                return;
+            }
+            
+            const file = event.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    try {
+                        const orderData = results.data.map((row, index) => ({
+                            id: index + 1,
+                            round: parseInt(row.Ronde || row.round || row.Round) || 1,
+                            pick: parseInt(row.Choix || row.pick || row.Pick) || 1,
+                            team: row.Équipe || row.Equipe || row.team || row.Team || '',
+                            overall: parseInt(row.Global || row.overall || row.Overall) || ((parseInt(row.Ronde || row.round || 1) - 1) * 26 + parseInt(row.Choix || row.pick || 1))
+                        })).filter(order => order.team !== '');
+
+                        // Trier par choix global
+                        orderData.sort((a, b) => a.overall - b.overall);
+                        
+                        draftOrder = orderData;
+                        
+                        saveData();
+                        updateInterface();
+                        
+                        alert(`${orderData.length} entrées d'ordre importées avec succès!`);
+                    } catch (error) {
+                        alert('Erreur lors de l\'importation du fichier CSV d\'ordre');
+                        console.error('Import error:', error);
+                    }
+                }
+            });
+            
+            event.target.value = '';
+        }
+
+        function getCurrentPickingTeam() {
+            if (draftOrder.length === 0) return null;
+            
+            const overallPick = (currentRound - 1) * 26 + currentPick;
+            const currentOrder = draftOrder.find(order => order.overall === overallPick);
+            return currentOrder ? currentOrder.team : null;
+        }
+
+        function updateDraftOrder() {
+            const orderEl = document.getElementById('draftOrderTable');
+            const currentPickerEl = document.getElementById('currentPickerText');
+            const currentTeamEl = document.getElementById('currentTeamText');
+            
+            // Mettre à jour le choix actuel
+            if (currentPickerEl) {
+                currentPickerEl.textContent = `Ronde ${currentRound} - Choix #${currentPick}`;
+            }
+            
+            if (currentTeamEl) {
+                const currentTeam = getCurrentPickingTeam();
+                if (currentTeam) {
+                    currentTeamEl.textContent = `Au tour de: ${currentTeam}`;
+                    currentTeamEl.style.color = '#10b981';
+                    
+                    // Mettre à jour automatiquement l'équipe sélectionnée pour l'admin
+                    if (isAdmin) {
+                        selectedTeam = currentTeam;
+                        const teamSelect = document.getElementById('teamSelect');
+                        if (teamSelect) {
+                            teamSelect.value = currentTeam;
+                        }
+                    }
+                } else {
+                    currentTeamEl.textContent = 'Équipe non définie dans l\'ordre';
+                    currentTeamEl.style.color = '#ef4444';
+                }
+            }
+            
+            if (draftOrder.length === 0) {
+                orderEl.innerHTML = `
+                    <div class="loading">
+                        <p>Importez un fichier CSV avec l'ordre de repêchage</p>
+                        <div style="margin-top: 10px; font-size: 0.8rem; color: #9ca3af;">
+                            Format: Ronde, Choix, Équipe<br>
+                            Exemple: 1, 1, Capitals
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Afficher les prochains choix
+            const overallPick = (currentRound - 1) * 26 + currentPick;
+            const nextPicks = draftOrder.filter(order => order.overall >= overallPick).slice(0, 10);
+
+            orderEl.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Choix Global</th>
+                            <th>Ronde</th>
+                            <th>Choix</th>
+                            <th>Équipe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${nextPicks.map((order, index) => `
+                            <tr style="${index === 0 ? 'background: rgba(16, 185, 129, 0.2);' : ''}">
+                                <td>${order.overall}</td>
+                                <td>${order.round}</td>
+                                <td>${order.pick}</td>
+                                <td style="font-weight: ${index === 0 ? 'bold' : 'normal'};">${order.team}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
         function selectPlayer(playerId) {
             selectedPlayer = players.find(p => p.id === playerId);
             updatePlayersList();
@@ -1022,8 +1411,19 @@
                 currentRound++;
             }
 
+            // Redémarrer le timer automatiquement pour le prochain choix
+            if (currentRound <= 5) {
+                timerRemaining = timerDuration;
+                timerActive = true;
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                }
+                startLocalTimer();
+            }
+
             selectedPlayer = null;
             saveData();
+            saveTimerState();
             updateInterface();
         }
 
@@ -1041,7 +1441,18 @@
                 currentRound++;
             }
 
+            // Redémarrer le timer automatiquement pour le prochain choix
+            if (currentRound <= 5) {
+                timerRemaining = timerDuration;
+                timerActive = true;
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                }
+                startLocalTimer();
+            }
+
             saveData();
+            saveTimerState();
             updateInterface();
         }
 
@@ -1052,11 +1463,19 @@
                 return;
             }
             
-            if (confirm('Êtes-vous sûr de vouloir réinitialiser le repêchage?')) {
+            if (confirm('Êtes-vous sûr de vouloir réinitialiser le repêchage? (Cela inclut le timer et l\'ordre)')) {
                 draftResults = [];
                 currentRound = 1;
                 currentPick = 1;
                 selectedTeam = 'Capitals';
+                
+                // Réinitialiser le timer
+                timerActive = false;
+                timerRemaining = timerDuration;
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
                 
                 players = players.map(p => ({ ...p, drafted: false }));
                 selectedPlayer = null;
@@ -1064,6 +1483,7 @@
                 document.getElementById('teamSelect').value = selectedTeam;
                 
                 saveData();
+                saveTimerState();
                 updateInterface();
             }
         }
