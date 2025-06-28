@@ -21,7 +21,7 @@
 
         body {
             font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 50%, #dc2626 100%);
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 25%, #dc2626 75%, #991b1b 100%);
             color: white;
             min-height: 100vh;
         }
@@ -44,6 +44,27 @@
             -webkit-text-fill-color: transparent;
             margin-bottom: 10px;
         }
+
+        .draft-logo {
+            display: inline-block;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .nhl-draft-logo {
+            width: 400px;
+            height: 120px;
+            max-width: 90vw;
+        }
+
+        @media (max-width: 768px) {
+            .nhl-draft-logo {
+                width: 300px;
+                height: 90px;
+            }
+        }
+
+        /* Section des logos d'équipes retirée pour éviter les problèmes de copyright */
 
         .login-form {
             max-width: 400px;
@@ -460,6 +481,55 @@
     <div id="mainApp" class="container hidden">
         <div class="header">
             <h1>🏒 Repêchage LHSS 2020</h1>
+            
+            <!-- Logo NHL Draft -->
+            <div class="draft-logo">
+                <svg class="nhl-draft-logo" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Fond principal -->
+                    <defs>
+                        <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+                        </linearGradient>
+                        <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#dc2626;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#b91c1c;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    
+                    <!-- Bouclier NHL simplifié -->
+                    <g transform="translate(10, 20)">
+                        <path d="M0 40 L0 10 Q0 0 10 0 L30 0 Q40 0 40 10 L40 40 Q40 50 30 60 L20 70 L10 60 Q0 50 0 40 Z" 
+                              fill="#000" stroke="#fff" stroke-width="2"/>
+                        <text x="20" y="35" text-anchor="middle" fill="white" font-family="Arial Black" font-size="12" font-weight="bold">NHL</text>
+                    </g>
+                    
+                    <!-- DRAFT en gros -->
+                    <g transform="translate(60, 30)">
+                        <path d="M0 15 L0 0 L250 0 Q270 0 280 10 L290 25 Q295 40 280 50 L250 60 L0 60 Z" 
+                              fill="url(#blueGrad)" stroke="#fff" stroke-width="2"/>
+                        <text x="140" y="40" text-anchor="middle" fill="white" font-family="Arial Black" font-size="32" font-weight="bold">DRAFT</text>
+                    </g>
+                    
+                    <!-- Bandeau 2020 -->
+                    <g transform="translate(80, 70)">
+                        <path d="M0 10 L180 10 Q200 10 210 20 L220 30 Q225 35 215 40 L200 45 L0 45 Q-10 45 -5 35 L0 25 Z" 
+                              fill="url(#redGrad)" stroke="#fff" stroke-width="2"/>
+                        <text x="110" y="32" text-anchor="middle" fill="white" font-family="Arial Black" font-size="16" font-weight="bold">2020</text>
+                    </g>
+                    
+                    <!-- Étoiles -->
+                    <g transform="translate(320, 20)">
+                        <polygon points="20,5 25,15 35,15 27,22 30,32 20,25 10,32 13,22 5,15 15,15" 
+                                 fill="#fbbf24" stroke="#fff" stroke-width="1"/>
+                        <polygon points="45,35 48,42 55,42 50,47 52,54 45,50 38,54 40,47 35,42 42,42" 
+                                 fill="#e5e7eb" stroke="#fff" stroke-width="1"/>
+                    </g>
+                </svg>
+            </div>
+            
+            <!-- Section décoration supprimée pour éviter les problèmes de copyright -->
+            
             <p id="roundInfo">Ronde 1 - Choix #1</p>
             <div id="connectionStatusMain" class="connection-status connecting" style="display: inline-flex; margin-top: 10px;">
                 <span>🔄</span>
