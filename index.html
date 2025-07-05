@@ -5,14 +5,1193 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Repêchage LHSS 2020</title>
     
-    <!-- Firebase SDKs -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js"></script>
-    
-    <!-- Papa Parse pour CSV -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Firebase SDKs (Updated for Firestore and Auth) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, addDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        
+        // Papa Parse pour CSV - Chargé via un script tag traditionnel pour éviter l'erreur d'importation de module
+        // La variable globale 'Papa' sera disponible après le chargement de ce script.
+        // The PapaParse script will be dynamically loaded in window.onload
+        // import Papa from "https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"; // REMOVED: Causes "does not provide an export named 'default'"
+        // window.Papa = Papa; // REMOVED: No longer needed as Papa is globally available
+
+        // Global Firebase variables
+        let app;
+        let db;
+        let auth;
+        let userId;
+
+        // Variables globales
+        let players = [];
+        let draftResults = [];
+        let draftOrder = [];
+        let selectedPlayer = null;
+        let currentRound = 1;
+        let currentPick = 1;
+        let isAdmin = false;
+        let currentLoggedInTeam = null; // New: Stores the team the user logged in as
+        let isConnected = false;
+        let useLocalStorage = false; // For local mode fallback
+
+        // Variables pour le compte à rebours
+        let timerDuration = 300; // 5 minutes par défaut (en secondes)
+        let timerRemaining = 300;
+        let timerActive = false;
+        let timerInterval = null;
+
+        // Firestore paths - CORRECTED FOR EVEN SEGMENTS
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'default-lhss-app';
+
+        // Collection references (will be initialized after 'db' is available)
+        let PLAYERS_COLLECTION_REF;
+        let STATE_COLLECTION_REF; // New collection for global app state documents
+
+        // Document references within the STATE_COLLECTION_REF
+        let DRAFT_RESULTS_DOC_REF;
+        let DRAFT_ORDER_DOC_REF;
+        let GAME_STATE_DOC_REF;
+        let TIMER_STATE_DOC_REF;
+
+        // Default players data (moved from global scope to a function/constant)
+        const defaultPlayers = [
+            {
+                id: "player1", // Use string IDs for Firestore documents
+                nom: "Tim Stützle",
+                position: "C",
+                age: 18,
+                poids: 187,
+                taille: "6'0\"",
+                potentiel: 9,
+                style: "Fabriquant de jeux",
+                precision: "B",
+                commentaire: "Excellent patineur avec des mains exceptionnelles",
+                drafted: false
+            },
+            {
+                id: "player2",
+                nom: "Quinton Byfield",
+                position: "C",
+                age: 18,
+                poids: 220,
+                taille: "6'5\"",
+                potentiel: 8.5,
+                style: "Attaquant Opportuniste",
+                precision: "B",
+                commentaire: "Grand centre dominant physiquement avec d'excellentes habiletés",
+                drafted: false
+            },
+            // Add more default players if needed
+        ];
+
+        // Initialize Firebase and set up auth listener
+        async function initFirebaseAndAuth() {
+            try {
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                if (Object.keys(firebaseConfig).length === 0) {
+                    console.warn("Firebase config not found. Showing setup form.");
+                    showFirebaseConfig();
+                    return;
+                }
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Initialize collection and document references
+                PLAYERS_COLLECTION_REF = collection(db, 'artifacts', APP_ID, 'public', 'data', 'players');
+                STATE_COLLECTION_REF = collection(db, 'artifacts', APP_ID, 'public', 'data', 'app_state');
+
+                DRAFT_RESULTS_DOC_REF = doc(STATE_COLLECTION_REF, 'draftResults');
+                DRAFT_ORDER_DOC_REF = doc(STATE_COLLECTION_REF, 'draftOrder');
+                GAME_STATE_DOC_REF = doc(STATE_COLLECTION_REF, 'gameState');
+                TIMER_STATE_DOC_REF = doc(STATE_COLLECTION_REF, 'timerState');
+
+
+                // Listen for auth state changes
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("Firebase User ID:", userId);
+                        updateConnectionStatus('connected', 'Connecté à Firebase');
+                        isConnected = true;
+                        setupRealtimeListeners();
+                        // Attempt to log in as admin if password was correct
+                        if (localStorage.getItem('isAdminLoggedIn') === 'true') {
+                            isAdmin = true;
+                            showMainApp();
+                            updateStatusIndicator();
+                        } else {
+                            showLoginForm(); // Show login form if not admin
+                        }
+                    } else {
+                        userId = null;
+                        console.log("No Firebase user logged in.");
+                        updateConnectionStatus('disconnected', 'Déconnecté');
+                        isConnected = false;
+                        showLoginForm();
+                    }
+                });
+
+                // Attempt to sign in with custom token if available
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                    console.log("Signed in with custom token.");
+                } else {
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously.");
+                }
+
+            } catch (error) {
+                console.error("Error initializing Firebase or signing in:", error);
+                updateConnectionStatus('offline', 'Erreur de connexion');
+                document.getElementById('firebaseSetup').classList.remove('hidden');
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('firebaseConfig').value = JSON.stringify(error.message, null, 2);
+            }
+        }
+
+        // Exposed to window for onclick handlers
+        window.initializeFirebase = async function() {
+            const configText = document.getElementById('firebaseConfig').value.trim();
+            
+            if (!configText) {
+                alert('Veuillez entrer votre configuration Firebase');
+                return;
+            }
+            
+            try {
+                const config = JSON.parse(configText);
+                
+                // Sauvegarder la configuration
+                localStorage.setItem('firebase-config', configText);
+                
+                // Initialize Firebase
+                app = initializeApp(config);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Initialize collection and document references
+                PLAYERS_COLLECTION_REF = collection(db, 'artifacts', APP_ID, 'public', 'data', 'players');
+                STATE_COLLECTION_REF = collection(db, 'artifacts', APP_ID, 'public', 'data', 'app_state');
+
+                DRAFT_RESULTS_DOC_REF = doc(STATE_COLLECTION_REF, 'draftResults');
+                DRAFT_ORDER_DOC_REF = doc(STATE_COLLECTION_REF, 'draftOrder');
+                GAME_STATE_DOC_REF = doc(STATE_COLLECTION_REF, 'gameState');
+                TIMER_STATE_DOC_REF = doc(STATE_COLLECTION_REF, 'timerState');
+                
+                setupRealtimeListeners();
+                showLoginForm();
+                
+            } catch (error) {
+                alert('Erreur dans la configuration Firebase: ' + error.message);
+                console.error('Firebase initialization error:', error);
+            }
+        };
+
+        // --- UI State Management ---
+        function updateStatusIndicator() {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const connectionStatusLogin = document.getElementById('connectionStatus');
+            const connectionStatusMain = document.getElementById('connectionStatusMain');
+
+            indicator.className = 'status-indicator';
+            connectionStatusLogin.className = 'connection-status';
+            connectionStatusMain.className = 'connection-status';
+
+            if (isAdmin) {
+                indicator.classList.add('status-admin');
+                statusText.textContent = 'Admin';
+                connectionStatusLogin.classList.add('connected');
+                connectionStatusLogin.innerHTML = '<span>✅</span><span>Connecté en tant qu\'Admin</span>';
+                connectionStatusMain.classList.add('connected');
+                connectionStatusMain.innerHTML = '<span>✅</span><span>Connecté en tant qu\'Admin</span>';
+            } else if (isConnected) {
+                indicator.classList.add('status-viewer');
+                statusText.textContent = 'Connecté';
+                connectionStatusLogin.classList.add('connected');
+                connectionStatusLogin.innerHTML = '<span>✅</span><span>Connecté (Spectateur)</span>';
+                connectionStatusMain.classList.add('connected');
+                connectionStatusMain.innerHTML = '<span>✅</span><span>Connecté (Spectateur)</span>';
+            } else if (useLocalStorage) {
+                indicator.classList.add('status-viewer');
+                statusText.textContent = 'Local';
+                connectionStatusLogin.classList.add('connected'); // Using connected style for local mode
+                connectionStatusLogin.innerHTML = '<span>💾</span><span>Mode Local Actif</span>';
+                connectionStatusMain.classList.add('connected');
+                connectionStatusMain.innerHTML = '<span>💾</span><span>Mode Local Actif</span>';
+            } else {
+                indicator.classList.add('status-connecting');
+                statusText.textContent = 'Connexion...';
+                connectionStatusLogin.classList.add('connecting');
+                connectionStatusLogin.innerHTML = '<span>🔄</span><span>Connexion à Firebase...</span>';
+                connectionStatusMain.classList.add('connecting');
+                connectionStatusMain.innerHTML = '<span>🔄</span><span>Synchronisation...</span>';
+            }
+        }
+
+        function updateConnectionStatus(status, message) {
+            const connectionStatusLogin = document.getElementById('connectionStatus');
+            const connectionStatusMain = document.getElementById('connectionStatusMain');
+
+            connectionStatusLogin.className = `connection-status ${status}`;
+            connectionStatusLogin.innerHTML = `<span>${status === 'connected' ? '✅' : status === 'disconnected' ? '❌' : '🔄'}</span><span>${message}</span>`;
+
+            connectionStatusMain.className = `connection-status ${status}`;
+            connectionStatusMain.innerHTML = `<span>${status === 'connected' ? '✅' : status === 'disconnected' ? '❌' : '🔄'}</span><span>${message}</span>`;
+
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            statusIndicator.className = `status-indicator status-${status}`;
+            statusText.textContent = message.split(' ')[0]; // Just the first word for brevity
+        }
+
+        window.showFirebaseConfig = function() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('firebaseSetup').classList.remove('hidden');
+        };
+
+        window.showLoginForm = function() {
+            document.getElementById('firebaseSetup').classList.add('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginForm').classList.remove('hidden');
+            updateStatusIndicator();
+        };
+
+        function showMainApp() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('firebaseSetup').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            updateStatusIndicator();
+            renderPlayersList();
+            renderDraftResults();
+            renderDraftOrder();
+            renderSummaryTable();
+        }
+
+        // --- Login Functions ---
+        window.loginAsAdmin = async function() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === 'lhss2020') {
+                isAdmin = true;
+                localStorage.setItem('isAdminLoggedIn', 'true'); // Persist admin status
+                showMainApp();
+                document.getElementById('adminControls').classList.remove('hidden');
+                document.getElementById('viewerInfo').classList.add('hidden');
+                updateStatusIndicator();
+            } else {
+                alert('Mot de passe incorrect.');
+            }
+        };
+
+        window.loginAsViewer = function() {
+            isAdmin = false;
+            localStorage.removeItem('isAdminLoggedIn'); // Clear admin status
+            showMainApp();
+            document.getElementById('adminControls').classList.add('hidden');
+            document.getElementById('viewerInfo').classList.remove('hidden');
+            updateStatusIndicator();
+        };
+
+        window.loginAsTeam = function() {
+            const teamNameInput = document.getElementById('teamNameInput');
+            const teamName = teamNameInput.value.trim();
+            if (teamName) {
+                currentLoggedInTeam = teamName;
+                isAdmin = false; // Ensure not admin when logging in as team
+                localStorage.removeItem('isAdminLoggedIn');
+                showMainApp();
+                document.getElementById('adminControls').classList.add('hidden');
+                document.getElementById('viewerInfo').classList.add('hidden'); // Team users are not general viewers
+                updateStatusIndicator();
+                alert(`Connecté en tant que: ${currentLoggedInTeam}`);
+            } else {
+                alert('Veuillez entrer un nom d\'équipe.');
+            }
+        };
+
+        window.useLocalMode = function() {
+            useLocalStorage = true;
+            localStorage.setItem('use-local-mode', 'true');
+            // Load dummy data for local mode
+            players = JSON.parse(localStorage.getItem('players')) || defaultPlayers;
+            draftResults = JSON.parse(localStorage.getItem('draftResults')) || [];
+            draftOrder = JSON.parse(localStorage.getItem('draftOrder')) || [];
+            currentRound = parseInt(localStorage.getItem('currentRound')) || 1;
+            currentPick = parseInt(localStorage.getItem('currentPick')) || 1;
+            timerDuration = parseInt(localStorage.getItem('timerDuration')) || 300;
+            timerRemaining = parseInt(localStorage.getItem('timerRemaining')) || 300;
+            timerActive = localStorage.getItem('timerActive') === 'true';
+            
+            updateConnectionStatus('local', 'Mode Local Actif');
+            showLoginForm();
+        };
+
+
+        // --- Firebase/Firestore Data Operations ---
+
+        // Setup Realtime Listeners (Firestore)
+        function setupRealtimeListeners() {
+            if (!db || useLocalStorage) return;
+
+            // Players
+            onSnapshot(PLAYERS_COLLECTION_REF, (snapshot) => {
+                players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log("Players updated:", players);
+                updateInterface();
+            }, (error) => {
+                console.error("Error fetching players:", error);
+                updateConnectionStatus('disconnected', 'Erreur joueurs');
+            });
+
+            // Draft State (results, current pick, etc.)
+            onSnapshot(DRAFT_RESULTS_DOC_REF, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    draftResults = data.results || [];
+                    console.log("Draft results updated:", draftResults);
+                } else {
+                    draftResults = [];
+                    console.log("No draft results yet.");
+                }
+                updateInterface();
+            }, (error) => {
+                console.error("Error fetching draft results:", error);
+                updateConnectionStatus('disconnected', 'Erreur résultats');
+            });
+
+            // Draft Order
+            onSnapshot(DRAFT_ORDER_DOC_REF, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    draftOrder = data.order || [];
+                    console.log("Draft order updated:", draftOrder);
+                } else {
+                    draftOrder = [];
+                    console.log("No draft order yet.");
+                }
+                updateInterface();
+            }, (error) => {
+                console.error("Error fetching draft order:", error);
+                updateConnectionStatus('disconnected', 'Erreur ordre');
+            });
+
+            // Game State (current round/pick)
+            onSnapshot(GAME_STATE_DOC_REF, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    currentRound = data.currentRound || 1;
+                    currentPick = data.currentPick || 1;
+                    console.log("Game state updated:", currentRound, currentPick);
+                } else {
+                    currentRound = 1;
+                    currentPick = 1;
+                    console.log("No game state yet.");
+                }
+                updateInterface();
+            }, (error) => {
+                console.error("Error fetching game state:", error);
+                updateConnectionStatus('disconnected', 'Erreur état jeu');
+            });
+
+            // Timer State
+            onSnapshot(TIMER_STATE_DOC_REF, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    timerDuration = data.duration || 300;
+                    timerRemaining = data.remaining || 300;
+                    timerActive = data.active || false;
+
+                    console.log("Timer state updated:", data);
+
+                    if (!isAdmin && timerActive && !timerInterval) {
+                        startLocalTimer();
+                    } else if (!timerActive && timerInterval) {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                    }
+                    updateTimerDisplay();
+                } else {
+                    // Default timer state if not exists
+                    timerDuration = 300;
+                    timerRemaining = 300;
+                    timerActive = false;
+                    updateTimerDisplay();
+                }
+            }, (error) => {
+                console.error("Error fetching timer state:", error);
+                updateConnectionStatus('disconnected', 'Erreur timer');
+            });
+        }
+
+        // Save data to Firestore (or Local Storage if offline/local mode)
+        async function savePlayers(updatedPlayers) {
+            if (useLocalStorage) {
+                localStorage.setItem('players', JSON.stringify(updatedPlayers));
+            } else if (db) {
+                // For players, we'll update individual documents
+                try {
+                    // Delete all existing players before adding new ones to ensure clean state
+                    const existingPlayersSnapshot = await getDocs(PLAYERS_COLLECTION_REF);
+                    const batch = writeBatch(db); // Use batch for multiple deletes/sets
+                    existingPlayersSnapshot.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit();
+
+                    // Add new players
+                    const newBatch = writeBatch(db);
+                    for (const player of updatedPlayers) {
+                        newBatch.set(doc(PLAYERS_COLLECTION_REF, player.id.toString()), player);
+                    }
+                    await newBatch.commit();
+                    console.log("Players saved to Firestore.");
+                } catch (e) {
+                    console.error("Error saving players to Firestore:", e);
+                }
+            }
+            players = updatedPlayers; // Update local state immediately
+            updateInterface();
+        }
+
+        async function saveDraftResults(updatedResults) {
+            if (useLocalStorage) {
+                localStorage.setItem('draftResults', JSON.stringify(updatedResults));
+            } else if (db) {
+                try {
+                    await setDoc(DRAFT_RESULTS_DOC_REF, { results: updatedResults });
+                    console.log("Draft results saved to Firestore.");
+                } catch (e) {
+                    console.error("Error saving draft results to Firestore:", e);
+                }
+            }
+            draftResults = updatedResults;
+            updateInterface();
+        }
+
+        async function saveDraftOrder(updatedOrder) {
+            if (useLocalStorage) {
+                localStorage.setItem('draftOrder', JSON.stringify(updatedOrder));
+            } else if (db) {
+                try {
+                    await setDoc(DRAFT_ORDER_DOC_REF, { order: updatedOrder });
+                    console.log("Draft order saved to Firestore.");
+                } catch (e) {
+                    console.error("Error saving draft order to Firestore:", e);
+                }
+            }
+            draftOrder = updatedOrder;
+            updateInterface();
+        }
+
+        async function saveGameState(round, pick) {
+            if (useLocalStorage) {
+                localStorage.setItem('currentRound', round);
+                localStorage.setItem('currentPick', pick);
+            } else if (db) {
+                try {
+                    await updateDoc(GAME_STATE_DOC_REF, { currentRound: round, currentPick: pick });
+                    console.log("Game state saved to Firestore.");
+                } catch (e) {
+                    console.error("Error saving game state to Firestore:", e);
+                }
+            }
+            currentRound = round;
+            currentPick = pick;
+            updateInterface();
+        }
+
+        async function saveTimerState(duration, remaining, active) {
+            if (useLocalStorage) {
+                localStorage.setItem('timerDuration', duration);
+                localStorage.setItem('timerRemaining', remaining);
+                localStorage.setItem('timerActive', active);
+            } else if (db) {
+                try {
+                    await setDoc(TIMER_STATE_DOC_REF, { duration, remaining, active });
+                    console.log("Timer state saved to Firestore.");
+                } catch (e) {
+                    console.error("Error saving timer state to Firestore:", e);
+                }
+            }
+            timerDuration = duration;
+            timerRemaining = remaining;
+            timerActive = active;
+            updateTimerDisplay();
+        }
+
+        // --- Timer Functions ---
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateTimerDisplay() {
+            const display = document.getElementById('timerDisplay');
+            const displayViewer = document.getElementById('timerDisplayViewer');
+            const statusViewer = document.getElementById('timerStatusViewer');
+
+            if (display) display.textContent = formatTime(timerRemaining);
+            if (displayViewer) displayViewer.textContent = formatTime(timerRemaining);
+
+            if (timerActive) {
+                if (statusViewer) statusViewer.textContent = "Actif";
+                if (display) display.classList.remove('expired-timer');
+                if (displayViewer) displayViewer.classList.remove('expired-timer');
+            } else {
+                if (statusViewer) statusViewer.textContent = "En pause";
+                if (timerRemaining === 0) {
+                    if (statusViewer) statusViewer.textContent = "Expiré!";
+                    if (display) display.classList.add('expired-timer');
+                    if (displayViewer) displayViewer.classList.add('expired-timer');
+                } else {
+                    if (display) display.classList.remove('expired-timer');
+                    if (displayViewer) displayViewer.classList.remove('expired-timer');
+                }
+            }
+
+            // Update admin timer buttons
+            const startBtn = document.getElementById('startTimerBtn');
+            const pauseBtn = document.getElementById('pauseTimerBtn');
+            if (startBtn) startBtn.disabled = timerActive;
+            if (pauseBtn) pauseBtn.disabled = !timerActive;
+        }
+
+        function startLocalTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (timerRemaining > 0) {
+                    timerRemaining--;
+                    updateTimerDisplay();
+                } else {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    saveTimerState(timerDuration, 0, false); // Update Firebase that timer is inactive
+                }
+            }, 1000);
+        }
+
+        window.setTimer = async function() {
+            if (!isAdmin) return;
+            const minutes = parseInt(document.getElementById('timerMinutes').value);
+            if (isNaN(minutes) || minutes <= 0) {
+                alert('Veuillez entrer un nombre de minutes valide.');
+                return;
+            }
+            const newDuration = minutes * 60;
+            await saveTimerState(newDuration, newDuration, false);
+            clearInterval(timerInterval); // Stop any running local timer
+            timerInterval = null;
+            updateTimerDisplay();
+        };
+
+        window.startTimer = async function() {
+            if (!isAdmin) return;
+            if (!timerActive) {
+                await saveTimerState(timerDuration, timerRemaining, true);
+                startLocalTimer(); // Start local timer immediately for responsiveness
+            }
+        };
+
+        window.pauseTimer = async function() {
+            if (!isAdmin) return;
+            if (timerActive) {
+                await saveTimerState(timerDuration, timerRemaining, false);
+                clearInterval(timerInterval); // Stop local timer
+                timerInterval = null;
+            }
+        };
+
+        window.resetTimer = async function() {
+            if (!isAdmin) return;
+            await saveTimerState(timerDuration, timerDuration, false);
+            clearInterval(timerInterval); // Stop local timer
+            timerInterval = null;
+        };
+
+        // --- Core Draft Logic ---
+
+        // Function to select a player
+        window.selectPlayer = function(playerId) {
+            const player = players.find(p => p.id === playerId);
+            if (player && !player.drafted) {
+                selectedPlayer = player;
+                renderPlayersList(); // Re-render to highlight selected player
+                renderPlayerDetails(player);
+                updateDraftButtonState();
+            } else if (player && player.drafted) {
+                renderPlayerDetails(player); // Show details even if drafted
+                selectedPlayer = null; // Cannot select drafted player for new pick
+                updateDraftButtonState();
+            }
+        };
+
+        // Update the state of the 'Draft Player' button
+        function updateDraftButtonState() {
+            const draftBtn = document.getElementById('draftSelectedPlayerBtn');
+            if (!draftBtn) return;
+
+            const currentPickInfo = draftOrder[currentPick - 1];
+            const isCurrentTeamTurn = currentLoggedInTeam && currentPickInfo && currentLoggedInTeam === currentPickInfo.team;
+
+            if (isAdmin || (isCurrentTeamTurn && selectedPlayer && !selectedPlayer.drafted)) {
+                draftBtn.disabled = false;
+                draftBtn.textContent = `Repêcher ${selectedPlayer ? selectedPlayer.nom : 'ce joueur'}`;
+            } else {
+                draftBtn.disabled = true;
+                if (!selectedPlayer) {
+                    draftBtn.textContent = 'Sélectionnez un joueur';
+                } else if (selectedPlayer.drafted) {
+                    draftBtn.textContent = 'Joueur déjà repêché';
+                } else if (!isCurrentTeamTurn && currentLoggedInTeam) {
+                    draftBtn.textContent = `Ce n'est pas le tour de ${currentLoggedInTeam}`;
+                } else {
+                    draftBtn.textContent = 'Repêcher ce joueur';
+                }
+            }
+        }
+
+        // Draft a player (called by admin or current picking team)
+        window.draftSelectedPlayer = async function() {
+            if (!selectedPlayer) {
+                alert('Veuillez sélectionner un joueur à repêcher.');
+                return;
+            }
+
+            if (selectedPlayer.drafted) {
+                alert('Ce joueur a déjà été repêché.');
+                return;
+            }
+
+            const currentPickInfo = draftOrder[currentPick - 1];
+            if (!currentPickInfo) {
+                alert('L\'ordre de repêchage n\'est pas défini ou le repêchage est terminé.');
+                return;
+            }
+
+            const pickingTeam = currentPickInfo.team;
+
+            // Authorization check
+            if (!isAdmin && currentLoggedInTeam !== pickingTeam) {
+                alert(`Ce n'est pas le tour de votre équipe (${currentLoggedInTeam}). C'est le tour de ${pickingTeam}.`);
+                return;
+            }
+
+            // Update player status
+            const updatedPlayers = players.map(p => {
+                if (p.id === selectedPlayer.id) {
+                    return {
+                        ...p,
+                        drafted: true,
+                        draftedBy: pickingTeam,
+                        draftRound: currentRound,
+                        draftPick: currentPick
+                    };
+                }
+                return p;
+            });
+
+            // Add to draft results
+            const newDraftResult = {
+                round: currentRound,
+                pick: currentPick,
+                team: pickingTeam,
+                player: selectedPlayer.nom,
+                playerId: selectedPlayer.id,
+                timestamp: Date.now()
+            };
+            const updatedDraftResults = [...draftResults, newDraftResult];
+
+            // Save all changes to Firestore
+            await savePlayers(updatedPlayers);
+            await saveDraftResults(updatedDraftResults);
+
+            // Advance to next pick
+            let nextRound = currentRound;
+            let nextPick = currentPick + 1;
+
+            if (nextPick > draftOrder.length || (draftOrder[nextPick - 1] && draftOrder[nextPick - 1].round > currentRound)) {
+                // If next pick is beyond current round or next round starts, increment round
+                nextRound++;
+                // Find the first pick of the next round. If not found, it means draft is over.
+                const nextRoundFirstPickIndex = draftOrder.findIndex(item => item.round === nextRound);
+                if (nextRoundFirstPickIndex !== -1) {
+                    nextPick = draftOrder[nextRoundFirstPickIndex].pick;
+                } else {
+                    nextPick = draftOrder.length + 1; // Mark as finished
+                }
+            }
+
+            await saveGameState(nextRound, nextPick);
+
+            selectedPlayer = null; // Clear selected player
+            updateDraftButtonState(); // Update button state
+            resetTimer(); // Reset timer for next pick
+        };
+
+        // Admin function to skip the current pick
+        window.skipPick = async function() {
+            if (!isAdmin) return;
+
+            const currentPickInfo = draftOrder[currentPick - 1];
+            if (!currentPickInfo) {
+                alert('L\'ordre de repêchage n\'est pas défini ou le repêchage est terminé.');
+                return;
+            }
+
+            // Add a placeholder to draft results for skipped pick
+            const newDraftResult = {
+                round: currentRound,
+                pick: currentPick,
+                team: currentPickInfo.team,
+                player: "Choix Passé",
+                playerId: null,
+                timestamp: Date.now()
+            };
+            const updatedDraftResults = [...draftResults, newDraftResult];
+            await saveDraftResults(updatedDraftResults);
+
+            // Advance to next pick
+            let nextRound = currentRound;
+            let nextPick = currentPick + 1;
+
+            if (nextPick > draftOrder.length || (draftOrder[nextPick - 1] && draftOrder[nextPick - 1].round > currentRound)) {
+                nextRound++;
+                const nextRoundFirstPickIndex = draftOrder.findIndex(item => item.round === nextRound);
+                if (nextRoundFirstPickIndex !== -1) {
+                    nextPick = draftOrder[nextRoundFirstPickIndex].pick;
+                } else {
+                    nextPick = draftOrder.length + 1;
+                }
+            }
+            await saveGameState(nextRound, nextPick);
+            resetTimer(); // Reset timer for next pick
+        };
+
+        // Admin function to undraft a player
+        window.undraftPlayer = async function(playerIdToUndraft) {
+            if (!isAdmin) return;
+
+            // Find the player in draft results and remove it
+            const undraftedResult = draftResults.find(r => r.playerId === playerIdToUndraft);
+            if (!undraftedResult) {
+                alert("Ce joueur n'est pas dans les résultats du repêchage.");
+                return;
+            }
+
+            const updatedDraftResults = draftResults.filter(r => r.playerId !== playerIdToUndraft);
+
+            // Find the player in the main players list and mark as not drafted
+            const updatedPlayers = players.map(p => {
+                if (p.id === playerIdToUndraft) {
+                    return {
+                        ...p,
+                        drafted: false,
+                        draftedBy: null,
+                        draftRound: null,
+                        draftPick: null
+                    };
+                }
+                return p;
+            });
+
+            // Update Firestore
+            await saveDraftResults(updatedDraftResults);
+            await savePlayers(updatedPlayers);
+
+            // Optionally, if the undrafted player was the most recent pick, you might want to revert the current pick.
+            // This logic can be complex for arbitrary undrafting, so for simplicity, we'll just update the lists.
+            // Admin can manually adjust currentRound/currentPick if needed.
+            alert(`Joueur ${undraftedResult.player} a été dé-repêché.`);
+        };
+
+
+        // --- Data Import/Export ---
+        window.importPlayers = function(event) {
+            if (!isAdmin) return;
+            const file = event.target.files[0];
+            if (file) {
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: async (results) => {
+                        const importedPlayers = results.data.map((row, index) => ({
+                            id: `player${index + 1}`, // Assign unique STRING ID
+                            nom: row.Nom || 'Inconnu',
+                            position: row.Position || 'N/A',
+                            age: parseInt(row.Age) || 0,
+                            poids: parseInt(row.Poids) || 0,
+                            taille: row.Taille || 'N/A',
+                            potentiel: parseFloat(row.Potentiel) || 0,
+                            style: row.Style || 'N/A',
+                            precision: row.Précision || 'N/A',
+                            commentaire: row.Commentaire || '',
+                            drafted: false // Reset drafted status on import
+                        }));
+                        await savePlayers(importedPlayers);
+                        alert('Joueurs importés avec succès!');
+                    },
+                    error: (err) => {
+                        alert('Erreur lors de l\'importation des joueurs: ' + err.message);
+                    }
+                });
+            }
+        };
+
+        window.importDraftOrder = function(event) {
+            if (!isAdmin) return;
+            const file = event.target.files[0];
+            if (file) {
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: async (results) => {
+                        const importedOrder = results.data.map(row => ({
+                            round: parseInt(row.Ronde),
+                            pick: parseInt(row.Choix),
+                            team: row.Équipe
+                        }));
+                        await saveDraftOrder(importedOrder);
+                        alert('Ordre de repêchage importé avec succès!');
+                    },
+                    error: (err) => {
+                        alert('Erreur lors de l\'importation de l\'ordre de repêchage: ' + err.message);
+                    }
+                });
+            }
+        };
+
+        window.exportToCSV = function() {
+            if (!isAdmin) return;
+            const csvData = draftResults.map(r => ({
+                Ronde: r.round,
+                Choix: r.pick,
+                Équipe: r.team,
+                Joueur: r.player
+            }));
+            const csv = Papa.unparse(csvData, {
+                header: true
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', 'resultats_repechage_lhss.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        window.resetDraft = async function() {
+            if (!isAdmin) return;
+            if (confirm('Êtes-vous sûr de vouloir réinitialiser le repêchage? Cela effacera tous les résultats et remettra les joueurs disponibles.')) {
+                await savePlayers(defaultPlayers.map(p => ({ ...p, drafted: false, draftedBy: null, draftRound: null, draftPick: null })));
+                await saveDraftResults([]);
+                await saveGameState(1, 1);
+                await saveTimerState(300, 300, false); // Reset timer
+                selectedPlayer = null;
+                updateDraftButtonState();
+                alert('Repêchage réinitialisé!');
+            }
+        };
+
+        // --- Rendering Functions ---
+
+        function updateInterface() {
+            renderPlayersList();
+            renderPlayerDetails(selectedPlayer);
+            renderDraftResults();
+            renderDraftOrder();
+            renderSummaryTable();
+            updateRoundAndPickInfo();
+            updatePlayerCounts();
+            updateDraftButtonState(); // Ensure button state is always correct
+        }
+
+        function renderPlayersList() {
+            const playersListDiv = document.getElementById('playersList');
+            if (!playersListDiv) return;
+
+            playersListDiv.innerHTML = '';
+            document.getElementById('playersLoading').classList.add('hidden');
+
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const positionFilter = document.getElementById('positionFilter').value;
+
+            const availablePlayers = players.filter(player =>
+                !player.drafted &&
+                (player.nom.toLowerCase().includes(searchTerm) || player.position.toLowerCase().includes(searchTerm)) &&
+                (positionFilter === '' || player.position === positionFilter)
+            );
+
+            if (availablePlayers.length === 0) {
+                playersListDiv.innerHTML = '<div class="loading"><p>Aucun joueur disponible correspondant aux critères.</p></div>';
+                return;
+            }
+
+            availablePlayers.forEach(player => {
+                const playerItem = document.createElement('div');
+                playerItem.classList.add('player-item');
+                if (selectedPlayer && selectedPlayer.id === player.id) {
+                    playerItem.classList.add('selected');
+                }
+                playerItem.onclick = () => selectPlayer(player.id);
+
+                playerItem.innerHTML = `
+                    <div class="player-name">${player.nom}</div>
+                    <div class="player-details">
+                        ${player.position} - ${player.taille}, ${player.poids} lbs, ${player.age} ans
+                        <div class="player-stats">
+                            <span class="player-potential">Pot: ${player.potentiel}</span>
+                            <span class="player-precision">Préc: ${player.precision}</span>
+                        </div>
+                    </div>
+                `;
+                playersListDiv.appendChild(playerItem);
+            });
+
+            // Populate position filter if not already
+            const positionFilterSelect = document.getElementById('positionFilter');
+            // Clear existing options except the first one ("Toutes les positions")
+            while (positionFilterSelect.options.length > 1) {
+                positionFilterSelect.remove(1);
+            }
+            const uniquePositions = [...new Set(players.map(p => p.position))].sort(); // Use 'players' for current data
+            uniquePositions.forEach(pos => {
+                const option = document.createElement('option');
+                option.value = pos;
+                option.textContent = pos;
+                positionFilterSelect.appendChild(option);
+            });
+            // Set the filter back to its previous value if it was set
+            positionFilterSelect.value = positionFilter;
+        }
+
+        function renderPlayerDetails(player) {
+            const playerDetailsDiv = document.getElementById('playerDetails');
+            if (!playerDetailsDiv) return;
+
+            if (!player) {
+                playerDetailsDiv.innerHTML = '<div class="loading"><p>Sélectionnez un joueur pour voir ses détails</p></div>';
+                return;
+            }
+
+            playerDetailsDiv.innerHTML = `
+                <h3 style="color: #fbbf24; margin-bottom: 10px;">${player.nom}</h3>
+                <p><strong>Position:</strong> ${player.position}</p>
+                <p><strong>Âge:</strong> ${player.age}</p>
+                <p><strong>Taille:</strong> ${player.taille}</p>
+                <p><strong>Poids:</strong> ${player.poids} lbs</p>
+                <p><strong>Potentiel:</strong> <span class="player-potential">${player.potentiel}</span></p>
+                <p><strong>Précision:</strong> <span class="player-precision">${player.precision}</span></p>
+                <p><strong>Style:</strong> ${player.style}</p>
+                <p><strong>Commentaire:</strong> ${player.commentaire || 'N/A'}</p>
+                ${player.drafted ? `<p style="margin-top: 10px; color: #10b981;"><strong>Repêché par:</strong> ${player.draftedBy} (Ronde ${player.draftRound}, Choix ${player.draftPick})</p>` : '<p style="margin-top: 10px; color: #ef4444;">Non repêché</p>'}
+                ${isAdmin && player.drafted ? `<button onclick="undraftPlayer('${player.id}')" class="btn btn-danger" style="margin-top: 15px;">Dé-repêcher</button>` : ''}
+            `;
+        }
+
+        function renderDraftResults() {
+            const draftResultsDiv = document.getElementById('draftResults');
+            if (!draftResultsDiv) return;
+
+            draftResultsDiv.innerHTML = '';
+            if (draftResults.length === 0) {
+                draftResultsDiv.innerHTML = '<div class="loading"><p>Aucun joueur repêché</p></div>';
+                return;
+            }
+
+            // Sort results by round, then pick
+            const sortedResults = [...draftResults].sort((a, b) => {
+                if (a.round !== b.round) return a.round - b.round;
+                return a.pick - b.pick;
+            });
+
+            sortedResults.forEach(result => {
+                const resultItem = document.createElement('div');
+                resultItem.classList.add('draft-result');
+                resultItem.innerHTML = `
+                    <div>
+                        <strong>R${result.round} - C${result.pick}:</strong> ${result.team} - ${result.player}
+                    </div>
+                    ${isAdmin && result.playerId ? `<button onclick="undraftPlayer('${result.playerId}')" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem;">Dé-repêcher</button>` : ''}
+                `;
+                draftResultsDiv.appendChild(resultItem);
+            });
+        }
+
+        function renderDraftOrder() {
+            const draftOrderTableDiv = document.getElementById('draftOrderTable');
+            if (!draftOrderTableDiv) return;
+
+            if (draftOrder.length === 0) {
+                draftOrderTableDiv.innerHTML = `
+                    <div class="loading">
+                        <p>Importez un fichier CSV avec l'ordre de repêchage</p>
+                        <div style="margin-top: 10px; font-size: 0.8rem; color: #9ca3af;">
+                            Format: Ronde, Choix, Équipe
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            let tableHTML = '<table class="table"><thead><tr><th>Ronde</th><th>Choix</th><th>Équipe</th></tr></thead><tbody>';
+            draftOrder.forEach((item, index) => {
+                const isCurrent = (item.round === currentRound && item.pick === currentPick);
+                const rowClass = isCurrent ? 'style="background-color: rgba(16, 185, 129, 0.3);"' : '';
+                tableHTML += `<tr ${rowClass}><td>${item.round}</td><td>${item.pick}</td><td>${item.team}</td></tr>`;
+            });
+            tableHTML += '</tbody></table>';
+            draftOrderTableDiv.innerHTML = tableHTML;
+        }
+
+        function renderSummaryTable() {
+            const summaryTableDiv = document.getElementById('summaryTable');
+            if (!summaryTableDiv) return;
+
+            const teamStats = {};
+            // Initialize team stats
+            const allTeams = [...new Set(draftOrder.map(item => item.team))];
+            allTeams.forEach(team => {
+                teamStats[team] = {
+                    totalPicks: 0,
+                    players: []
+                };
+            });
+
+            // Populate team stats from draft results
+            draftResults.forEach(result => {
+                if (teamStats[result.team]) {
+                    teamStats[result.team].totalPicks++;
+                    teamStats[result.team].players.push(result.player);
+                }
+            });
+
+            let tableHTML = '<table class="table"><thead><tr><th>Équipe</th><th>Total Choix</th><th>Joueurs Repêchés</th></tr></thead><tbody>';
+            allTeams.sort().forEach(team => {
+                const stats = teamStats[team];
+                tableHTML += `
+                    <tr>
+                        <td>${team}</td>
+                        <td>${stats.totalPicks}</td>
+                        <td>${stats.players.join(', ') || 'Aucun'}</td>
+                    </tr>
+                `;
+            });
+            tableHTML += '</tbody></table>';
+            summaryTableDiv.innerHTML = tableHTML;
+        }
+
+        function updateRoundAndPickInfo() {
+            const roundInfo = document.getElementById('roundInfo');
+            const currentPickerText = document.getElementById('currentPickerText');
+            const currentTeamText = document.getElementById('currentTeamText');
+
+            if (!roundInfo || !currentPickerText || !currentTeamText) return;
+
+            const currentPickInfo = draftOrder.find(item => item.round === currentRound && item.pick === currentPick);
+
+            if (currentPickInfo) {
+                roundInfo.textContent = `Ronde ${currentRound} - Choix #${currentPick}`;
+                currentPickerText.textContent = `Ronde ${currentRound} - Choix #${currentPick}`;
+                currentTeamText.textContent = currentPickInfo.team;
+                // Highlight current picker in the main app header
+                document.getElementById('currentPicker').style.borderColor = '#10b981';
+            } else {
+                roundInfo.textContent = 'Repêchage Terminé!';
+                currentPickerText.textContent = 'Repêchage Terminé!';
+                currentTeamText.textContent = 'Félicitations à tous!';
+                document.getElementById('currentPicker').style.borderColor = '#fbbf24'; // Change color for finished state
+            }
+        }
+
+        function updatePlayerCounts() {
+            const availableCount = players.filter(p => !p.drafted).length;
+            const totalPlayers = players.length;
+            document.getElementById('availableCount').textContent = availableCount;
+            document.getElementById('playerCount').textContent = `Joueurs disponibles: ${availableCount} / ${totalPlayers}`;
+        }
+
+        // --- Initialization on Load ---
+        window.addEventListener('load', async () => {
+            // Load PapaParse globally
+            const papaScript = document.createElement('script');
+            papaScript.src = "https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js";
+            papaScript.onload = async () => {
+                // Ensure PapaParse is available globally
+                if (typeof Papa === 'undefined') {
+                    console.error("PapaParse failed to load.");
+                    alert("Erreur: PapaParse n'a pas pu être chargé. L'importation CSV ne fonctionnera pas.");
+                }
+
+                // Add event listeners for buttons after PapaParse is loaded and script is parsed
+                document.getElementById('initializeFirebaseBtn').addEventListener('click', window.initializeFirebase);
+                document.getElementById('useLocalModeBtn').addEventListener('click', window.useLocalMode);
+                document.getElementById('backToLoginFromFirebaseSetupBtn').addEventListener('click', window.showLoginForm);
+                document.getElementById('loginAsAdminBtn').addEventListener('click', window.loginAsAdmin);
+                document.getElementById('loginAsTeamBtn').addEventListener('click', window.loginAsTeam);
+                document.getElementById('loginAsViewerBtn').addEventListener('click', window.loginAsViewer);
+                document.getElementById('showFirebaseConfigBtn').addEventListener('click', window.showFirebaseConfig);
+                document.getElementById('setTimerBtn').addEventListener('click', window.setTimer);
+                document.getElementById('startTimerBtn').addEventListener('click', window.startTimer);
+                document.getElementById('pauseTimerBtn').addEventListener('click', window.pauseTimer);
+                document.getElementById('resetTimerBtn').addEventListener('click', window.resetTimer);
+                document.getElementById('exportCsvBtn').addEventListener('click', window.exportToCSV);
+                document.getElementById('resetDraftBtn').addEventListener('click', window.resetDraft);
+                document.getElementById('skipBtn').addEventListener('click', window.skipPick);
+                document.getElementById('draftSelectedPlayerBtn').addEventListener('click', window.draftSelectedPlayer);
+
+                // Initial Firebase/Local Mode setup
+                const storedConfig = localStorage.getItem('firebase-config');
+                if (localStorage.getItem('use-local-mode') === 'true') {
+                    window.useLocalMode(); // This will also call showLoginForm
+                } else if (storedConfig) {
+                    try {
+                        const config = JSON.parse(storedConfig);
+                        app = initializeApp(config);
+                        db = getFirestore(app);
+                        auth = getAuth(app);
+                        // Initialize collection and document references
+                        PLAYERS_COLLECTION_REF = collection(db, 'artifacts', APP_ID, 'public', 'data', 'players');
+                        STATE_COLLECTION_REF = collection(db, 'artifacts', APP_ID, 'public', 'data', 'app_state');
+
+                        DRAFT_RESULTS_DOC_REF = doc(STATE_COLLECTION_REF, 'draftResults');
+                        DRAFT_ORDER_DOC_REF = doc(STATE_COLLECTION_REF, 'draftOrder');
+                        GAME_STATE_DOC_REF = doc(STATE_COLLECTION_REF, 'gameState');
+                        TIMER_STATE_DOC_REF = doc(STATE_COLLECTION_REF, 'timerState');
+
+                        setupRealtimeListeners();
+                        if (localStorage.getItem('isAdminLoggedIn') === 'true') {
+                            isAdmin = true;
+                            showMainApp();
+                        } else {
+                            showLoginForm();
+                        }
+                    } catch (e) {
+                        console.error("Error loading stored Firebase config:", e);
+                        showFirebaseConfig(); // Show config setup if error
+                    }
+                } else if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    await initFirebaseAndAuth();
+                } else {
+                    showFirebaseConfig(); // No stored config, show setup
+                }
+
+                // Event listeners for search and filter
+                document.getElementById('searchInput').addEventListener('input', renderPlayersList);
+                document.getElementById('positionFilter').addEventListener('change', renderPlayersList);
+            };
+            document.head.appendChild(papaScript);
+        });
+
+    </script>
     
     <style>
+        /* Base styles */
         * {
             margin: 0;
             padding: 0;
@@ -20,16 +1199,25 @@
         }
 
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Inter', sans-serif; /* Changed to Inter as per instructions */
             background: linear-gradient(135deg, #1e40af 0%, #3b82f6 25%, #dc2626 75%, #991b1b 100%);
             color: white;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
         }
 
         .container {
             max-width: 1400px;
+            width: 100%;
             margin: 0 auto;
             padding: 20px;
+            background: rgba(17, 24, 39, 0.8); /* Slightly darker background for main content */
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
         }
 
         .header {
@@ -38,11 +1226,12 @@
         }
 
         .header h1 {
-            font-size: 3rem;
+            font-size: 3.5rem; /* Slightly larger */
             background: linear-gradient(45deg, #fbbf24, #f97316);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 10px;
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
         }
 
         .draft-logo {
@@ -62,17 +1251,25 @@
                 width: 300px;
                 height: 90px;
             }
+            .header h1 {
+                font-size: 2.5rem;
+            }
         }
 
-        /* Section des logos d'équipes retirée pour éviter les problèmes de copyright */
-
         .login-form {
-            max-width: 400px;
+            max-width: 450px; /* Slightly wider */
             margin: 50px auto;
-            background: rgba(31, 41, 55, 0.9);
-            padding: 30px;
+            background: rgba(31, 41, 55, 0.95); /* Slightly less transparent */
+            padding: 40px; /* More padding */
             border-radius: 15px;
             text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .login-form h2 {
+            font-size: 2rem;
+            margin-bottom: 25px;
+            color: #fbbf24;
         }
 
         .controls {
@@ -82,6 +1279,10 @@
             flex-wrap: wrap;
             margin-bottom: 30px;
             align-items: center;
+            padding: 15px;
+            background: rgba(31, 41, 55, 0.9);
+            border-radius: 15px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
         }
 
         .btn {
@@ -90,21 +1291,24 @@
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            transition: all 0.3s;
+            transition: all 0.3s ease; /* Smoother transition */
             color: white;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
         }
 
-        .btn-primary { background: linear-gradient(45deg, #3b82f6, #8b5cf6); }
-        .btn-success { background: linear-gradient(45deg, #10b981, #059669); }
-        .btn-danger { background: linear-gradient(45deg, #ef4444, #dc2626); }
-        .btn-warning { background: linear-gradient(45deg, #f59e0b, #d97706); }
+        .btn-primary { background: linear-gradient(45deg, #3b82f6, #60a5fa); } /* Lighter blue */
+        .btn-success { background: linear-gradient(45deg, #10b981, #34d399); } /* Lighter green */
+        .btn-danger { background: linear-gradient(45deg, #ef4444, #f87171); } /* Lighter red */
+        .btn-warning { background: linear-gradient(45deg, #f59e0b, #fbbf24); } /* Lighter orange */
 
-        .btn:hover { transform: translateY(-2px); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); } /* More pronounced hover */
+        .btn:active { transform: translateY(-1px) scale(0.98); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); } /* Click effect */
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
 
         .grid {
             display: grid;
@@ -127,29 +1331,34 @@
             padding: 25px;
             max-height: 600px;
             overflow-y: auto;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(75, 85, 99, 0.5); /* Subtle border */
         }
 
         .panel h2 {
-            font-size: 1.5rem;
+            font-size: 1.8rem; /* Slightly larger */
             margin-bottom: 20px;
             display: flex;
             align-items: center;
             gap: 10px;
+            color: #fbbf24; /* Highlight panel titles */
         }
 
         .search-input, .select-input {
             width: 100%;
-            padding: 10px;
+            padding: 12px; /* More padding */
             background: rgba(55, 65, 81, 1);
             border: 1px solid #4b5563;
             border-radius: 8px;
             color: white;
             margin-bottom: 15px;
+            font-size: 1rem;
         }
 
         .search-input:focus, .select-input:focus {
             outline: none;
             border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); /* Focus ring */
         }
 
         .player-list {
@@ -163,70 +1372,80 @@
             border-radius: 8px;
             margin-bottom: 10px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
             border: 2px solid transparent;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
 
         .player-item:hover {
             background: rgba(75, 85, 99, 1);
+            transform: translateY(-2px);
         }
 
         .player-item.selected {
             background: #3b82f6;
             border-color: #60a5fa;
+            transform: scale(1.01);
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
         }
 
         .player-item.drafted {
-            opacity: 0.5;
-            background: rgba(55, 65, 81, 0.5);
+            opacity: 0.6; /* Slightly more visible */
+            background: rgba(55, 65, 81, 0.7); /* Darker, less transparent */
             cursor: not-allowed;
+            border-color: transparent; /* No border for drafted */
         }
 
         .player-name {
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 1.2rem; /* Slightly larger */
+            color: #e5e7eb;
         }
 
         .player-details {
             color: #d1d5db;
-            font-size: 0.9rem;
+            font-size: 0.95rem; /* Slightly larger */
             margin-top: 5px;
         }
 
-        .player-potential {
+        .player-potential, .player-precision {
             display: inline-block;
-            background: #fbbf24;
-            color: #000;
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 3px 10px; /* More padding */
+            border-radius: 5px; /* More rounded */
             font-weight: bold;
             margin-left: 5px;
+            font-size: 0.85rem; /* Slightly larger */
+        }
+
+        .player-potential {
+            background: #fbbf24;
+            color: #000;
         }
 
         .player-precision {
-            display: inline-block;
             background: #3b82f6;
             color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: bold;
-            margin-left: 5px;
         }
 
         .player-stats {
             float: right;
             display: flex;
-            gap: 5px;
+            gap: 8px; /* More space */
         }
 
         .draft-result {
             background: rgba(55, 65, 81, 1);
-            padding: 12px;
+            padding: 15px; /* More padding */
             border-radius: 8px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             display: flex;
-            justify-content: between;
+            justify-content: space-between; /* Space between text and button */
             align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .draft-result strong {
+            color: #fbbf24;
         }
 
         .team-selector {
@@ -234,6 +1453,11 @@
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.2);
         }
 
         .loading {
@@ -243,11 +1467,11 @@
         }
 
         .spinner {
-            border: 3px solid #374151;
-            border-top: 3px solid #3b82f6;
+            border: 4px solid #374151; /* Thicker border */
+            border-top: 4px solid #3b82f6; /* Thicker border */
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 50px; /* Larger spinner */
+            height: 50px;
             animation: spin 1s linear infinite;
             margin: 0 auto 20px;
         }
@@ -265,23 +1489,13 @@
             border-radius: 8px;
             font-size: 0.9rem;
             z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
         }
 
-        .status-admin {
-            background: #10b981;
-        }
-
-        .status-viewer {
-            background: #3b82f6;
-        }
-
-        .status-connecting {
-            background: #f59e0b;
-        }
-
-        .status-offline {
-            background: #ef4444;
-        }
+        .status-admin { background: #10b981; }
+        .status-viewer { background: #3b82f6; }
+        .status-connecting { background: #f59e0b; }
+        .status-offline { background: #ef4444; }
 
         .export-data {
             display: none;
@@ -291,31 +1505,34 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
-            font-size: 0.75rem;
+            font-size: 0.85rem; /* Slightly larger */
+            border-radius: 10px;
+            overflow: hidden; /* For rounded corners on table */
         }
 
         .table th, .table td {
-            padding: 6px 4px;
+            padding: 10px 8px; /* More padding */
             border: 1px solid #4b5563;
             text-align: left;
             word-wrap: break-word;
-            max-width: 120px;
+            max-width: 150px; /* Increased max-width */
         }
 
         .table th {
             background: rgba(55, 65, 81, 1);
             font-weight: bold;
-            font-size: 0.7rem;
+            font-size: 0.8rem;
+            color: #e5e7eb;
         }
 
         @media (max-width: 768px) {
             .table {
-                font-size: 0.65rem;
+                font-size: 0.75rem;
             }
             
             .table th, .table td {
-                padding: 4px 2px;
-                max-width: 80px;
+                padding: 6px 4px;
+                max-width: 100px;
             }
         }
 
@@ -334,6 +1551,7 @@
 
         .timer-controls h3 {
             text-align: center;
+            color: #fbbf24;
         }
 
         .timer-display {
@@ -425,7 +1643,7 @@
             <h3>Instructions de configuration :</h3>
             <ol style="text-align: left; margin-bottom: 15px; color: #d1d5db;">
                 <li>Créez un projet Firebase sur <a href="https://console.firebase.google.com" target="_blank" style="color: #60a5fa;">console.firebase.google.com</a></li>
-                <li>Activez Realtime Database</li>
+                <li>Activez Firestore Database</li>
                 <li>Copiez la configuration et collez-la ci-dessous</li>
             </ol>
         </div>
@@ -443,15 +1661,15 @@
 }'
                   style="width: 100%; height: 150px; margin-bottom: 15px; padding: 10px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 8px; color: white; font-family: monospace; font-size: 0.8rem;"></textarea>
         
-        <button onclick="initializeFirebase()" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
+        <button id="initializeFirebaseBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
             🚀 Initialiser Firebase
         </button>
         
-        <button onclick="useLocalMode()" class="btn btn-warning" style="width: 100%; margin-bottom: 10px;">
+        <button id="useLocalModeBtn" class="btn btn-warning" style="width: 100%; margin-bottom: 10px;">
             📱 Mode Local (sans synchronisation)
         </button>
         
-        <button onclick="showLoginForm()" class="btn btn-primary" style="width: 100%;">
+        <button id="backToLoginFromFirebaseSetupBtn" class="btn btn-primary" style="width: 100%;">
             ← Retour à la connexion
         </button>
         
@@ -475,22 +1693,31 @@
         
         <div style="margin-bottom: 20px;">
             <input type="password" id="adminPassword" placeholder="Mot de passe admin" 
-                   class="search-input" style="margin-bottom: 10px;">
-            <button onclick="loginAsAdmin()" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
+                    class="search-input" style="margin-bottom: 10px;">
+            <button id="loginAsAdminBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
                 Connexion Admin
             </button>
         </div>
+
+        <div style="margin-bottom: 20px;">
+            <input type="text" id="teamNameInput" placeholder="Nom de votre équipe" 
+                    class="search-input" style="margin-bottom: 10px;">
+            <button id="loginAsTeamBtn" class="btn btn-success" style="width: 100%; margin-bottom: 10px;">
+                Connexion en tant qu'Équipe
+            </button>
+        </div>
         
-        <button onclick="loginAsViewer()" class="btn btn-success" style="width: 100%;">
+        <button id="loginAsViewerBtn" class="btn btn-warning" style="width: 100%;">
             Accès Spectateur (Lecture seule)
         </button>
         
-        <button onclick="showFirebaseConfig()" class="btn btn-warning" style="width: 100%; margin-top: 10px; font-size: 0.9rem;">
+        <button id="showFirebaseConfigBtn" class="btn btn-primary" style="width: 100%; margin-top: 10px; font-size: 0.9rem;">
             ⚙️ Configuration Firebase (Admin uniquement)
         </button>
         
         <div style="margin-top: 20px; font-size: 0.8rem; color: #9ca3af;">
             <strong>Mode Admin:</strong> Mot de passe = "lhss2020"<br>
+            <strong>Mode Équipe:</strong> Permet de repêcher quand c'est votre tour.<br>
             <strong>Mode Spectateur:</strong> Voir les résultats en temps réel
         </div>
     </div>
@@ -539,8 +1766,6 @@
                 </svg>
             </div>
             
-            <!-- Section décoration supprimée pour éviter les problèmes de copyright -->
-            
             <p id="roundInfo">Ronde 1 - Choix #1</p>
             <div id="connectionStatusMain" class="connection-status connecting" style="display: inline-flex; margin-top: 10px;">
                 <span>🔄</span>
@@ -556,15 +1781,15 @@
                 <div id="timerDisplay" style="font-size: 2rem; font-weight: bold; color: #60a5fa; margin-bottom: 10px;">05:00</div>
                 <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px;">
                     <input type="number" id="timerMinutes" placeholder="Minutes" min="1" max="60" value="5" 
-                           style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
-                    <button onclick="setTimer()" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.9rem;">Définir</button>
-                    <button onclick="startTimer()" class="btn btn-success" style="padding: 5px 10px; font-size: 0.9rem;" id="startTimerBtn">Start</button>
-                    <button onclick="pauseTimer()" class="btn btn-warning" style="padding: 5px 10px; font-size: 0.9rem;" id="pauseTimerBtn">Pause</button>
-                    <button onclick="resetTimer()" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.9rem;">Reset</button>
+                            style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <button id="setTimerBtn" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.9rem;">Définir</button>
+                    <button id="startTimerBtn" class="btn btn-success" style="padding: 5px 10px; font-size: 0.9rem;">Start</button>
+                    <button id="pauseTimerBtn" class="btn btn-warning" style="padding: 5px 10px; font-size: 0.9rem;">Pause</button>
+                    <button id="resetTimerBtn" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.9rem;">Reset</button>
                 </div>
             </div>
 
-            <button onclick="exportToCSV()" class="btn btn-success">
+            <button id="exportCsvBtn" class="btn btn-success">
                 💾 Exporter CSV
             </button>
             
@@ -578,43 +1803,11 @@
                 <input type="file" accept=".csv" onchange="importDraftOrder(event)" style="display: none;">
             </label>
             
-            <button onclick="resetDraft()" class="btn btn-danger">
+            <button id="resetDraftBtn" class="btn btn-danger">
                 🔄 Réinitialiser
             </button>
             
-            <div class="team-selector">
-                <label style="margin-right: 10px;">Équipe:</label>
-                <select id="teamSelect" class="select-input" style="width: auto; margin: 0;">
-                    <option value="Capitals">Capitals</option>
-                    <option value="Flyers">Flyers</option>
-                    <option value="Ducks">Ducks</option>
-                    <option value="Panthers">Panthers</option>
-                    <option value="Sabres">Sabres</option>
-                    <option value="Jets">Jets</option>
-                    <option value="Oilers">Oilers</option>
-                    <option value="Stars">Stars</option>
-                    <option value="Blackhawks">Blackhawks</option>
-                    <option value="Blues">Blues</option>
-                    <option value="Sharks">Sharks</option>
-                    <option value="Rangers">Rangers</option>
-                    <option value="Canadiens">Canadiens</option>
-                    <option value="Maple Leafs">Maple Leafs</option>
-                    <option value="Bruins">Bruins</option>
-                    <option value="Predators">Predators</option>
-                    <option value="Devils">Devils</option>
-                    <option value="Kraken">Kraken</option>
-                    <option value="Islanders">Islanders</option>
-                    <option value="Flames">Flames</option>
-                    <option value="Senators">Senators</option>
-                    <option value="Canucks">Canucks</option>
-                    <option value="Lightning">Lightning</option>
-                    <option value="Red Wings">Red Wings</option>
-                    <option value="Avalanche">Avalanche</option>
-                    <option value="Penguins">Penguins</option>
-                </select>
-            </div>
-            
-            <button onclick="skipPick()" class="btn btn-warning" id="skipBtn">
+            <button id="skipBtn" class="btn btn-warning">
                 ⏭️ Passer le tour
             </button>
             
@@ -664,7 +1857,7 @@
                     👥 Joueurs Disponibles (<span id="availableCount">0</span>)
                 </h2>
                 
-                <!-- Filtres disponibles pour tous les utilisateurs -->
+                <!-- Filters available for all users -->
                 <div id="searchFilters">
                     <input type="text" id="searchInput" placeholder="Rechercher un joueur..." class="search-input">
                     <select id="positionFilter" class="select-input">
@@ -678,6 +1871,11 @@
                 </div>
                 
                 <div id="playersList" class="player-list"></div>
+
+                <!-- New: Draft Player Button -->
+                <button id="draftSelectedPlayerBtn" class="btn btn-success" style="width: 100%; margin-top: 15px;" disabled>
+                    Sélectionnez un joueur
+                </button>
             </div>
 
             <!-- Player Details -->
@@ -710,1016 +1908,5 @@
             <div id="summaryTable"></div>
         </div>
     </div>
-
-    <script>
-        // Variables globales
-        let players = [];
-        let draftResults = [];
-        let draftOrder = []; // Nouveau: ordre de repêchage
-        let selectedPlayer = null;
-        let currentRound = 1;
-        let currentPick = 1;
-        let isAdmin = false;
-        let selectedTeam = 'Capitals';
-        let database = null;
-        let firebaseApp = null;
-        let isConnected = false;
-        let useLocalStorage = false;
-        
-        // Variables pour le compte à rebours
-        let timerDuration = 300; // 5 minutes par défaut (en secondes)
-        let timerRemaining = 300;
-        let timerActive = false;
-        let timerInterval = null;
-
-        // Configuration Firebase par défaut (à remplacer)
-        const defaultFirebaseConfig = {
-            // Cette configuration doit être remplacée par celle de votre projet
-            databaseURL: "https://votre-projet-default-rtdb.firebaseio.com/"
-        };
-
-        // Données initiales (backup)
-        const defaultPlayers = [
-            {
-                id: 1,
-                nom: "Tim Stützle",
-                position: "C",
-                age: 18,
-                poids: 187,
-                taille: "6'0\"",
-                potentiel: 9,
-                style: "Fabriquant de jeux",
-                precision: "B",
-                commentaire: "Excellent patineur avec des mains exceptionnelles",
-                drafted: false
-            },
-            {
-                id: 2,
-                nom: "Quinton Byfield",
-                position: "C",
-                age: 18,
-                poids: 220,
-                taille: "6'5\"",
-                potentiel: 8.5,
-                style: "Attaquant Opportuniste",
-                precision: "B",
-                commentaire: "Grand centre dominant physiquement avec d'excellentes habiletés",
-                drafted: false
-            }
-        ];
-
-        // Initialisation Firebase
-        function initializeFirebase() {
-            const configText = document.getElementById('firebaseConfig').value.trim();
-            
-            if (!configText) {
-                alert('Veuillez entrer votre configuration Firebase');
-                return;
-            }
-            
-            try {
-                const config = JSON.parse(configText);
-                
-                // Sauvegarder la configuration
-                localStorage.setItem('firebase-config', configText);
-                
-                // Initialiser Firebase
-                firebaseApp = firebase.initializeApp(config);
-                database = firebase.database();
-                
-                setupRealtimeListeners();
-                showLoginForm();
-                
-            } catch (error) {
-                alert('Erreur dans la configuration Firebase: ' + error.message);
-                console.error('Firebase initialization error:', error);
-            }
-        }
-
-        function useLocalMode() {
-            useLocalStorage = true;
-            localStorage.setItem('use-local-mode', 'true');
-            showLoginForm();
-        }
-
-        function showFirebaseConfig() {
-            document.getElementById('loginForm').classList.add('hidden');
-            document.getElementById('firebaseSetup').classList.remove('hidden');
-        }
-
-        function showLoginForm() {
-            document.getElementById('firebaseSetup').classList.add('hidden');
-            document.getElementById('loginForm').classList.remove('hidden');
-            
-            if (useLocalStorage) {
-                updateConnectionStatus('local', 'Mode Local Actif');
-            } else {
-                updateConnectionStatus('connecting', 'Connexion à Firebase...');
-            }
-        }
-
-        // Configuration des listeners temps réel
-        function setupRealtimeListeners() {
-            if (!database || useLocalStorage) return;
-
-            // Listener pour les joueurs
-            database.ref('players').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    players = data;
-                    updateInterface();
-                }
-                updateConnectionStatus('connected', 'Connecté à Firebase');
-            });
-
-            // Listener pour les résultats du draft
-            database.ref('draftResults').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    draftResults = data;
-                    updateInterface();
-                }
-            });
-
-            // Listener pour l'ordre de repêchage
-            database.ref('draftOrder').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    draftOrder = data;
-                    updateInterface();
-                }
-            });
-
-            // Listener pour l'état du jeu
-            database.ref('gameState').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    currentRound = data.currentRound || 1;
-                    currentPick = data.currentPick || 1;
-                    updateInterface();
-                }
-            });
-
-            // Listener pour le timer
-            database.ref('timer').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    timerDuration = data.duration || 300;
-                    timerRemaining = data.remaining || 300;
-                    timerActive = data.active || false;
-                    
-                    if (!isAdmin && timerActive && !timerInterval) {
-                        startLocalTimer();
-                    } else if (!timerActive && timerInterval) {
-                        clearInterval(timerInterval);
-                        timerInterval = null;
-                    }
-                    updateTimerDisplay();
-                }
-            });
-
-            // Listener pour la connexion
-            database.ref('.info/connected').on('value', (snapshot) => {
-                isConnected = snapshot.val();
-                if (isConnected) {
-                    updateConnectionStatus('connected', 'Connecté');
-                    // Initialiser les données si c'est la première connexion
-                    initializeDefaultData();
-                } else {
-                    updateConnectionStatus('disconnected', 'Connexion perdue');
-                }
-            });
-        }
-
-        function updateConnectionStatus(status, message) {
-            const indicators = ['connectionStatus', 'connectionStatusMain'];
-            
-            indicators.forEach(id => {
-                const element = document.getElementById(id);
-                if (element) {
-                    element.className = `connection-status ${status}`;
-                    let icon = '🔄';
-                    switch (status) {
-                        case 'connected': icon = '✅'; break;
-                        case 'disconnected': icon = '❌'; break;
-                        case 'local': icon = '📱'; break;
-                        case 'connecting': icon = '🔄'; break;
-                    }
-                    element.innerHTML = `<span>${icon}</span><span>${message}</span>`;
-                }
-            });
-        }
-
-        function initializeDefaultData() {
-            if (!database || useLocalStorage) return;
-            
-            // Vérifier si les données existent déjà
-            database.ref('players').once('value', (snapshot) => {
-                if (!snapshot.exists()) {
-                    // Initialiser avec les données par défaut
-                    database.ref('players').set(defaultPlayers);
-                    database.ref('draftResults').set([]);
-                    database.ref('draftOrder').set([]);
-                    database.ref('gameState').set({
-                        currentRound: 1,
-                        currentPick: 1
-                    });
-                    database.ref('timer').set({
-                        duration: 300,
-                        remaining: 300,
-                        active: false
-                    });
-                }
-            });
-        }
-
-        // Fonctions du compte à rebours
-        function setTimer() {
-            const minutes = parseInt(document.getElementById('timerMinutes').value) || 5;
-            timerDuration = minutes * 60;
-            timerRemaining = timerDuration;
-            timerActive = false;
-            
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-            }
-            
-            updateTimerDisplay();
-            saveTimerState();
-        }
-
-        function startTimer() {
-            if (!isAdmin) return;
-            
-            timerActive = true;
-            saveTimerState();
-            
-            if (!timerInterval) {
-                startLocalTimer();
-            }
-        }
-
-        function pauseTimer() {
-            if (!isAdmin) return;
-            
-            timerActive = false;
-            saveTimerState();
-            
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-            }
-        }
-
-        function resetTimer() {
-            if (!isAdmin) return;
-            
-            timerActive = false;
-            timerRemaining = timerDuration;
-            
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-            }
-            
-            updateTimerDisplay();
-            saveTimerState();
-        }
-
-        function startLocalTimer() {
-            if (timerInterval) return;
-            
-            timerInterval = setInterval(() => {
-                if (timerRemaining > 0) {
-                    timerRemaining--;
-                    updateTimerDisplay();
-                    
-                    // Sauvegarder l'état seulement si admin
-                    if (isAdmin) {
-                        saveTimerState();
-                    }
-                } else {
-                    // Temps écoulé
-                    timerActive = false;
-                    clearInterval(timerInterval);
-                    timerInterval = null;
-                    
-                    if (isAdmin) {
-                        saveTimerState();
-                        alert('⏰ Temps écoulé ! Le choix doit être fait.');
-                    }
-                    updateTimerDisplay();
-                }
-            }, 1000);
-        }
-
-        function updateTimerDisplay() {
-            const minutes = Math.floor(timerRemaining / 60);
-            const seconds = timerRemaining % 60;
-            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
-            // Mettre à jour l'affichage admin
-            const adminDisplay = document.getElementById('timerDisplay');
-            if (adminDisplay) {
-                adminDisplay.textContent = timeString;
-                adminDisplay.style.color = timerRemaining <= 30 ? '#ef4444' : '#60a5fa';
-            }
-            
-            // Mettre à jour l'affichage spectateur
-            const viewerDisplay = document.getElementById('timerDisplayViewer');
-            const viewerStatus = document.getElementById('timerStatusViewer');
-            if (viewerDisplay) {
-                viewerDisplay.textContent = timeString;
-                viewerDisplay.style.color = timerRemaining <= 30 ? '#ef4444' : '#60a5fa';
-            }
-            if (viewerStatus) {
-                viewerStatus.textContent = timerActive ? 'En cours...' : 'En pause';
-                viewerStatus.style.color = timerActive ? '#10b981' : '#9ca3af';
-            }
-        }
-
-        function saveTimerState() {
-            if (useLocalStorage) {
-                localStorage.setItem('timer-state', JSON.stringify({
-                    duration: timerDuration,
-                    remaining: timerRemaining,
-                    active: timerActive
-                }));
-            } else if (database && isAdmin) {
-                database.ref('timer').set({
-                    duration: timerDuration,
-                    remaining: timerRemaining,
-                    active: timerActive
-                });
-            }
-        }
-
-        // Fonctions de connexion
-        function loginAsAdmin() {
-            const password = document.getElementById('adminPassword').value;
-            if (password === 'lhss2020') {
-                isAdmin = true;
-                document.getElementById('statusText').textContent = 'Admin';
-                document.getElementById('statusIndicator').className = 'status-indicator status-admin';
-                showMainApp();
-            } else {
-                alert('Mot de passe incorrect!');
-            }
-        }
-
-        function loginAsViewer() {
-            isAdmin = false;
-            document.getElementById('statusText').textContent = 'Spectateur';
-            document.getElementById('statusIndicator').className = 'status-indicator status-viewer';
-            showMainApp();
-        }
-
-        function showMainApp() {
-            document.getElementById('loginForm').classList.add('hidden');
-            document.getElementById('mainApp').classList.remove('hidden');
-            
-            if (isAdmin) {
-                document.getElementById('adminControls').classList.remove('hidden');
-            } else {
-                document.getElementById('viewerInfo').classList.remove('hidden');
-            }
-            
-            loadData();
-            updateInterface();
-        }
-
-        // Gestion des données avec Firebase ou localStorage
-        function loadData() {
-            if (useLocalStorage) {
-                const savedPlayers = localStorage.getItem('lhss-players');
-                const savedDraft = localStorage.getItem('lhss-draft');
-                const savedOrder = localStorage.getItem('lhss-order');
-                const savedRound = localStorage.getItem('lhss-round');
-                const savedPick = localStorage.getItem('lhss-pick');
-                const savedTimer = localStorage.getItem('timer-state');
-
-                if (savedPlayers) {
-                    players = JSON.parse(savedPlayers);
-                } else {
-                    players = [...defaultPlayers];
-                    saveData();
-                }
-
-                if (savedDraft) {
-                    draftResults = JSON.parse(savedDraft);
-                }
-
-                if (savedOrder) {
-                    draftOrder = JSON.parse(savedOrder);
-                }
-
-                if (savedRound) {
-                    currentRound = parseInt(savedRound);
-                }
-
-                if (savedPick) {
-                    currentPick = parseInt(savedPick);
-                }
-
-                if (savedTimer) {
-                    const timerState = JSON.parse(savedTimer);
-                    timerDuration = timerState.duration || 300;
-                    timerRemaining = timerState.remaining || 300;
-                    timerActive = timerState.active || false;
-                }
-
-                updateInterface();
-            }
-            // En mode Firebase, les données sont chargées via les listeners
-        }
-
-        function saveData() {
-            if (useLocalStorage) {
-                localStorage.setItem('lhss-players', JSON.stringify(players));
-                localStorage.setItem('lhss-draft', JSON.stringify(draftResults));
-                localStorage.setItem('lhss-order', JSON.stringify(draftOrder));
-                localStorage.setItem('lhss-round', currentRound.toString());
-                localStorage.setItem('lhss-pick', currentPick.toString());
-            } else if (database && isAdmin) {
-                // Sauvegarder dans Firebase (seulement les admins peuvent modifier)
-                database.ref('players').set(players);
-                database.ref('draftResults').set(draftResults);
-                database.ref('draftOrder').set(draftOrder);
-                database.ref('gameState').set({
-                    currentRound: currentRound,
-                    currentPick: currentPick
-                });
-            }
-        }
-
-        // Interface
-        function updateInterface() {
-            updateRoundInfo();
-            updatePlayersList();
-            updateDraftResults();
-            updatePlayerCount();
-            updateSummaryTable();
-            updateDraftOrder();
-            updateTimerDisplay();
-        }
-
-        function updateRoundInfo() {
-            document.getElementById('roundInfo').textContent = `Ronde ${currentRound} - Choix #${currentPick}`;
-            
-            if (currentRound > 5) {
-                document.getElementById('skipBtn').style.display = 'none';
-            }
-        }
-
-        function updatePlayersList() {
-            const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
-            const positionFilter = document.getElementById('positionFilter')?.value || '';
-            
-            const filteredPlayers = players.filter(player => {
-                if (player.drafted) return false;
-                
-                const matchesSearch = player.nom.toLowerCase().includes(searchTerm) ||
-                                    player.style.toLowerCase().includes(searchTerm);
-                const matchesPosition = positionFilter === '' || player.position === positionFilter;
-                
-                return matchesSearch && matchesPosition;
-            });
-
-            const playersListEl = document.getElementById('playersList');
-            const loadingEl = document.getElementById('playersLoading');
-            
-            if (players.length === 0) {
-                loadingEl.style.display = 'block';
-                playersListEl.innerHTML = '';
-                return;
-            }
-            
-            loadingEl.style.display = 'none';
-            
-            if (filteredPlayers.length === 0) {
-                playersListEl.innerHTML = '<div class="loading"><p>Aucun joueur trouvé</p></div>';
-                return;
-            }
-
-            playersListEl.innerHTML = filteredPlayers.map(player => `
-                <div class="player-item ${selectedPlayer?.id === player.id ? 'selected' : ''}" 
-                     onclick="selectPlayer(${player.id})">
-                    <div class="player-stats">
-                        <div class="player-potential">${player.potentiel}</div>
-                        <div class="player-precision">${player.precision}</div>
-                    </div>
-                    <div class="player-name">${player.nom}</div>
-                    <div class="player-details">${player.position} • ${player.style}</div>
-                </div>
-            `).join('');
-
-            // Mettre à jour le filtre des positions
-            const positions = [...new Set(players.map(p => p.position))].filter(Boolean).sort();
-            const positionFilterEl = document.getElementById('positionFilter');
-            if (positionFilterEl) {
-                positionFilterEl.innerHTML = '<option value="">Toutes les positions</option>' +
-                    positions.map(pos => `<option value="${pos}">${pos}</option>`).join('');
-            }
-
-            document.getElementById('availableCount').textContent = filteredPlayers.length;
-        }
-
-        function updatePlayerCount() {
-            const available = players.filter(p => !p.drafted).length;
-            const total = players.length;
-            document.getElementById('playerCount').textContent = `Joueurs disponibles: ${available} / ${total}`;
-        }
-
-        function updateDraftResults() {
-            const resultsEl = document.getElementById('draftResults');
-            
-            if (draftResults.length === 0) {
-                resultsEl.innerHTML = '<div class="loading"><p>Aucun joueur repêché</p></div>';
-                return;
-            }
-
-            resultsEl.innerHTML = draftResults.slice(-10).reverse().map(player => `
-                <div class="draft-result">
-                    <div>
-                        <div style="font-weight: bold;">${player.nom}</div>
-                        <div style="font-size: 0.85rem; color: #9ca3af;">
-                            ${player.position} • Pot: ${player.potentiel} • ${player.team}
-                        </div>
-                        <div style="font-size: 0.8rem; color: #fbbf24;">
-                            #${player.overallPick} (R${player.round}-${player.roundPick})
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function updateSummaryTable() {
-            const summaryEl = document.getElementById('summaryTable');
-            
-            if (draftResults.length === 0) {
-                summaryEl.innerHTML = '<p>Aucun repêchage effectué</p>';
-                return;
-            }
-
-            summaryEl.innerHTML = `
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Ronde</th>
-                            <th>Choix Global</th>
-                            <th>Équipe</th>
-                            <th>Joueur</th>
-                            <th>Position</th>
-                            <th>Potentiel</th>
-                            <th>Style</th>
-                            <th>Précision</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${draftResults.map(player => `
-                            <tr>
-                                <td>${player.round}</td>
-                                <td>${player.overallPick}</td>
-                                <td>${player.team}</td>
-                                <td>${player.nom}</td>
-                                <td>${player.position}</td>
-                                <td>${player.potentiel}</td>
-                                <td>${player.style}</td>
-                                <td>${player.precision}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
-
-        // Gestion de l'ordre de repêchage
-        function importDraftOrder(event) {
-            if (!isAdmin) return;
-            if (!isConnected && !useLocalStorage) {
-                alert('Connexion perdue! Impossible d\'importer.');
-                return;
-            }
-            
-            const file = event.target.files[0];
-            if (!file) return;
-
-            Papa.parse(file, {
-                header: true,
-                dynamicTyping: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    try {
-                        const orderData = results.data.map((row, index) => ({
-                            id: index + 1,
-                            round: parseInt(row.Ronde || row.round || row.Round) || 1,
-                            pick: parseInt(row.Choix || row.pick || row.Pick) || 1,
-                            team: row.Équipe || row.Equipe || row.team || row.Team || '',
-                            overall: parseInt(row.Global || row.overall || row.Overall) || ((parseInt(row.Ronde || row.round || 1) - 1) * 26 + parseInt(row.Choix || row.pick || 1))
-                        })).filter(order => order.team !== '');
-
-                        // Trier par choix global
-                        orderData.sort((a, b) => a.overall - b.overall);
-                        
-                        draftOrder = orderData;
-                        
-                        saveData();
-                        updateInterface();
-                        
-                        alert(`${orderData.length} entrées d'ordre importées avec succès!`);
-                    } catch (error) {
-                        alert('Erreur lors de l\'importation du fichier CSV d\'ordre');
-                        console.error('Import error:', error);
-                    }
-                }
-            });
-            
-            event.target.value = '';
-        }
-
-        function getCurrentPickingTeam() {
-            if (draftOrder.length === 0) return null;
-            
-            const overallPick = (currentRound - 1) * 26 + currentPick;
-            const currentOrder = draftOrder.find(order => order.overall === overallPick);
-            return currentOrder ? currentOrder.team : null;
-        }
-
-        function updateDraftOrder() {
-            const orderEl = document.getElementById('draftOrderTable');
-            const currentPickerEl = document.getElementById('currentPickerText');
-            const currentTeamEl = document.getElementById('currentTeamText');
-            
-            // Mettre à jour le choix actuel
-            if (currentPickerEl) {
-                currentPickerEl.textContent = `Ronde ${currentRound} - Choix #${currentPick}`;
-            }
-            
-            if (currentTeamEl) {
-                const currentTeam = getCurrentPickingTeam();
-                if (currentTeam) {
-                    currentTeamEl.textContent = `Au tour de: ${currentTeam}`;
-                    currentTeamEl.style.color = '#10b981';
-                    
-                    // Mettre à jour automatiquement l'équipe sélectionnée pour l'admin
-                    if (isAdmin) {
-                        selectedTeam = currentTeam;
-                        const teamSelect = document.getElementById('teamSelect');
-                        if (teamSelect) {
-                            teamSelect.value = currentTeam;
-                        }
-                    }
-                } else {
-                    currentTeamEl.textContent = 'Équipe non définie dans l\'ordre';
-                    currentTeamEl.style.color = '#ef4444';
-                }
-            }
-            
-            if (draftOrder.length === 0) {
-                orderEl.innerHTML = `
-                    <div class="loading">
-                        <p>Importez un fichier CSV avec l'ordre de repêchage</p>
-                        <div style="margin-top: 10px; font-size: 0.8rem; color: #9ca3af;">
-                            Format: Ronde, Choix, Équipe<br>
-                            Exemple: 1, 1, Capitals
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-
-            // Calculer le choix global actuel
-            const currentOverallPick = (currentRound - 1) * 26 + currentPick;
-            
-            // Filtrer pour avoir seulement les choix qui n'ont pas encore été faits
-            const upcomingPicks = draftOrder.filter(order => {
-                const orderOverallPick = order.overall;
-                return orderOverallPick >= currentOverallPick;
-            }).slice(0, 10); // Prendre seulement les 10 prochains
-
-            if (upcomingPicks.length === 0) {
-                orderEl.innerHTML = `
-                    <div class="loading">
-                        <p>Aucun choix restant dans l'ordre défini</p>
-                    </div>
-                `;
-                return;
-            }
-
-            orderEl.innerHTML = `
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Choix Global</th>
-                            <th>Ronde</th>
-                            <th>Choix</th>
-                            <th>Équipe</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${upcomingPicks.map((order, index) => {
-                            const isCurrentPick = order.overall === currentOverallPick;
-                            return `
-                                <tr style="${isCurrentPick ? 'background: rgba(16, 185, 129, 0.3); border: 2px solid #10b981;' : ''}">
-                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.overall}</td>
-                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.round}</td>
-                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.pick}</td>
-                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'}; color: ${isCurrentPick ? '#10b981' : 'inherit'};">${order.team}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
-        function selectPlayer(playerId) {
-            selectedPlayer = players.find(p => p.id === playerId);
-            updatePlayersList();
-            updatePlayerDetails();
-        }
-
-        function updatePlayerDetails() {
-            const detailsEl = document.getElementById('playerDetails');
-            
-            if (!selectedPlayer) {
-                detailsEl.innerHTML = '<div class="loading"><p>Sélectionnez un joueur pour voir ses détails</p></div>';
-                return;
-            }
-
-            detailsEl.innerHTML = `
-                <div style="background: rgba(55, 65, 81, 1); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h3 style="color: #fbbf24; margin-bottom: 15px;">${selectedPlayer.nom}</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-                        <div><span style="color: #9ca3af;">Position:</span> ${selectedPlayer.position}</div>
-                        <div><span style="color: #9ca3af;">Âge:</span> ${selectedPlayer.age} ans</div>
-                        <div><span style="color: #9ca3af;">Taille:</span> ${selectedPlayer.taille}</div>
-                        <div><span style="color: #9ca3af;">Poids:</span> ${selectedPlayer.poids} lbs</div>
-                        <div><span style="color: #9ca3af;">Potentiel:</span> <span style="color: #fbbf24; font-weight: bold;">${selectedPlayer.potentiel}/10</span></div>
-                        <div><span style="color: #9ca3af;">Précision:</span> ${selectedPlayer.precision}</div>
-                    </div>
-                    <div style="margin-bottom: 15px;">
-                        <span style="color: #9ca3af;">Style:</span> <span style="color: #60a5fa;">${selectedPlayer.style}</span>
-                    </div>
-                    <div>
-                        <span style="color: #9ca3af;">Commentaire:</span>
-                        <p style="margin-top: 5px; line-height: 1.4;">${selectedPlayer.commentaire}</p>
-                    </div>
-                </div>
-                
-                ${isAdmin && currentRound <= 5 ? `
-                    <button onclick="draftPlayer()" class="btn btn-primary" style="width: 100%; padding: 15px; font-size: 1.1rem;" ${!isConnected && !useLocalStorage ? 'disabled' : ''}>
-                        Repêcher avec ${selectedTeam}
-                        <br>
-                        <span style="font-size: 0.9rem;">Ronde ${currentRound}, Choix #${(currentRound - 1) * 26 + currentPick}</span>
-                    </button>
-                ` : ''}
-            `;
-        }
-
-        function draftPlayer() {
-            if (!isAdmin || !selectedPlayer || currentRound > 5) return;
-            if (!isConnected && !useLocalStorage) {
-                alert('Connexion perdue! Impossible de repêcher.');
-                return;
-            }
-
-            selectedTeam = document.getElementById('teamSelect').value;
-            
-            const draftedPlayer = {
-                ...selectedPlayer,
-                round: currentRound,
-                overallPick: (currentRound - 1) * 26 + currentPick,
-                team: selectedTeam,
-                roundPick: currentPick
-            };
-
-            draftResults.push(draftedPlayer);
-            
-            // Marquer le joueur comme repêché
-            const playerIndex = players.findIndex(p => p.id === selectedPlayer.id);
-            if (playerIndex !== -1) {
-                players[playerIndex].drafted = true;
-            }
-
-            // Avancer au prochain choix
-            if (currentPick < 26) {
-                currentPick++;
-            } else {
-                currentPick = 1;
-                currentRound++;
-            }
-
-            // Redémarrer le timer automatiquement pour le prochain choix
-            if (currentRound <= 5) {
-                timerRemaining = timerDuration;
-                timerActive = true;
-                if (timerInterval) {
-                    clearInterval(timerInterval);
-                }
-                startLocalTimer();
-            }
-
-            selectedPlayer = null;
-            saveData();
-            saveTimerState();
-            updateInterface();
-        }
-
-        function skipPick() {
-            if (!isAdmin || currentRound > 5) return;
-            if (!isConnected && !useLocalStorage) {
-                alert('Connexion perdue! Impossible de passer le tour.');
-                return;
-            }
-
-            if (currentPick < 26) {
-                currentPick++;
-            } else {
-                currentPick = 1;
-                currentRound++;
-            }
-
-            // Redémarrer le timer automatiquement pour le prochain choix
-            if (currentRound <= 5) {
-                timerRemaining = timerDuration;
-                timerActive = true;
-                if (timerInterval) {
-                    clearInterval(timerInterval);
-                }
-                startLocalTimer();
-            }
-
-            saveData();
-            saveTimerState();
-            updateInterface();
-        }
-
-        function resetDraft() {
-            if (!isAdmin) return;
-            if (!isConnected && !useLocalStorage) {
-                alert('Connexion perdue! Impossible de réinitialiser.');
-                return;
-            }
-            
-            if (confirm('Êtes-vous sûr de vouloir réinitialiser le repêchage? (Cela inclut le timer et l\'ordre)')) {
-                draftResults = [];
-                currentRound = 1;
-                currentPick = 1;
-                selectedTeam = 'Capitals';
-                
-                // Réinitialiser le timer
-                timerActive = false;
-                timerRemaining = timerDuration;
-                if (timerInterval) {
-                    clearInterval(timerInterval);
-                    timerInterval = null;
-                }
-                
-                players = players.map(p => ({ ...p, drafted: false }));
-                selectedPlayer = null;
-                
-                document.getElementById('teamSelect').value = selectedTeam;
-                
-                saveData();
-                saveTimerState();
-                updateInterface();
-            }
-        }
-
-        function importPlayers(event) {
-            if (!isAdmin) return;
-            if (!isConnected && !useLocalStorage) {
-                alert('Connexion perdue! Impossible d\'importer.');
-                return;
-            }
-            
-            const file = event.target.files[0];
-            if (!file) return;
-
-            Papa.parse(file, {
-                header: true,
-                dynamicTyping: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    try {
-                        const playerData = results.data.map((row, index) => ({
-                            id: index + 1,
-                            nom: row.Nom || row.nom || '',
-                            position: row.Position || row.position || '',
-                            age: parseInt(row.Age || row.age) || 0,
-                            poids: parseInt(row.Poids || row.poids) || 0,
-                            taille: row.Taille || row.taille || '',
-                            potentiel: parseFloat(row.Potentiel || row.potentiel) || 0,
-                            style: row.Style || row.style || '',
-                            precision: row.Précision || row.precision || '',
-                            commentaire: row.Commentaire || row.commentaire || '',
-                            drafted: false
-                        })).filter(player => player.nom !== '');
-
-                        playerData.sort((a, b) => b.potentiel - a.potentiel);
-                        
-                        players = playerData;
-                        selectedPlayer = null;
-                        
-                        saveData();
-                        updateInterface();
-                        
-                        alert(`${playerData.length} joueurs importés avec succès!`);
-                    } catch (error) {
-                        alert('Erreur lors de l\'importation du fichier CSV');
-                    }
-                }
-            });
-            
-            event.target.value = '';
-        }
-
-        function exportToCSV() {
-            if (draftResults.length === 0) {
-                alert('Aucun joueur repêché à exporter!');
-                return;
-            }
-
-            const headers = ['Ronde', 'Choix Global', 'Choix de Ronde', 'Équipe', 'Joueur', 'Position', 'Potentiel', 'Style', 'Précision'];
-            const csvContent = [
-                headers.join(','),
-                ...draftResults.map(player => [
-                    player.round,
-                    player.overallPick,
-                    player.roundPick,
-                    player.team,
-                    `"${player.nom}"`,
-                    player.position,
-                    player.potentiel,
-                    `"${player.style}"`,
-                    player.precision
-                ].join(','))
-            ].join('\n');
-
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `repechage_lhss_${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-        }
-
-        // Configuration Firebase par défaut (remplacez par la vôtre)
-        const defaultConfig = {
-            "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
-            "authDomain": "lhssdraft.firebaseapp.com",
-            "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
-            "projectId": "lhssdraft",
-            "storageBucket": "lhssdraft.firebasestorage.app",
-            "messagingSenderId": "441205645400",
-            "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
-            "measurementId": "G-N7RN68KTND"
-        };
-
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', function() {
-            // Vérifier s'il y a une configuration Firebase sauvegardée
-            const savedConfig = localStorage.getItem('firebase-config');
-            const localMode = localStorage.getItem('use-local-mode');
-            
-            if (localMode === 'true') {
-                useLocalMode();
-                return;
-            }
-            
-            if (savedConfig) {
-                try {
-                    const config = JSON.parse(savedConfig);
-                    initializeFirebaseWithConfig(config);
-                    return;
-                } catch (error) {
-                    console.error('Erreur de configuration sauvegardée:', error);
-                }
-            }
-
-            // Toujours utiliser la configuration par défaut pour tous les utilisateurs
-            initializeFirebaseWithConfig(defaultConfig);
-
-            document.getElementById('searchInput')?.addEventListener('input', updatePlayersList);
-            document.getElementById('positionFilter')?.addEventListener('change', updatePlayersList);
-            document.getElementById('teamSelect')?.addEventListener('change', function(e) {
-                selectedTeam = e.target.value;
-            });
-        });
-
-        function initializeFirebaseWithConfig(config) {
-            try {
-                firebaseApp = firebase.initializeApp(config);
-                database = firebase.database();
-                setupRealtimeListeners();
-                showLoginForm();
-            } catch (error) {
-                console.error('Erreur Firebase:', error);
-                // En cas d'erreur, basculer en mode local
-                useLocalMode();
-            }
-        }
-    </script>
 </body>
 </html>
