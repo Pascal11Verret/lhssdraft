@@ -1,5 +1,3 @@
-Cde qui work
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -15,6 +13,7 @@ Cde qui work
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
     <style>
+        /* Global styles */
         * {
             margin: 0;
             padding: 0;
@@ -65,8 +64,6 @@ Cde qui work
                 height: 90px;
             }
         }
-
-        /* Section des logos d'équipes retirée pour éviter les problèmes de copyright */
 
         .login-form {
             max-width: 400px;
@@ -227,7 +224,7 @@ Cde qui work
             border-radius: 8px;
             margin-bottom: 8px;
             display: flex;
-            justify-content: between;
+            justify-content: space-between; /* Changed from 'between' to 'space-between' */
             align-items: center;
         }
 
@@ -308,6 +305,12 @@ Cde qui work
             background: rgba(55, 65, 81, 1);
             font-weight: bold;
             font-size: 0.7rem;
+        }
+
+        /* Added style for editable rows */
+        .table tbody tr.editable:hover {
+            background-color: rgba(60, 179, 113, 0.3); /* Light green for hover */
+            cursor: pointer;
         }
 
         @media (max-width: 768px) {
@@ -420,7 +423,7 @@ Cde qui work
         <span id="statusText">Connexion...</span>
     </div>
 
-    <!-- Configuration Firebase -->
+    <!-- Firebase Configuration -->
     <div id="firebaseSetup" class="login-form hidden">
         <h2>🔧 Configuration Firebase</h2>
         <div class="firebase-setup">
@@ -434,13 +437,14 @@ Cde qui work
         
         <textarea id="firebaseConfig" placeholder='Collez votre configuration Firebase ici, exemple:
 {
-  "apiKey": "votre-api-key",
-  "authDomain": "votre-projet.firebaseapp.com",
-  "databaseURL": "https://votre-projet-default-rtdb.firebaseio.com/",
-  "projectId": "votre-projet",
-  "storageBucket": "votre-projet.appspot.com",
-  "messagingSenderId": "123456789",
-  "appId": "votre-app-id"
+  "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
+            "authDomain": "lhssdraft.firebaseapp.com",
+            "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
+            "projectId": "lhssdraft",
+            "storageBucket": "lhssdraft.firebasestorage.app",
+            "messagingSenderId": "441205645400",
+            "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
+            "measurementId": "G-N7RN68KTND"
 }'
                   style="width: 100%; height: 150px; margin-bottom: 15px; padding: 10px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 8px; color: white; font-family: monospace; font-size: 0.8rem;"></textarea>
         
@@ -501,10 +505,10 @@ Cde qui work
         <div class="header">
             <h1>🏒 Repêchage LHSS 2020</h1>
             
-            <!-- Logo LHSS Draft -->
+            <!-- LHSS Draft Logo (SVG) -->
             <div class="draft-logo">
                 <svg class="lhss-draft-logo" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Fond principal -->
+                    <!-- Main background -->
                     <defs>
                         <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                             <stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
@@ -516,21 +520,21 @@ Cde qui work
                         </linearGradient>
                     </defs>
                     
-                    <!-- DRAFT en gros -->
+                    <!-- "DRAFT" text -->
                     <g transform="translate(60, 30)">
                         <path d="M0 15 L0 0 L250 0 Q270 0 280 10 L290 25 Q295 40 280 50 L250 60 L0 60 Z" 
                               fill="url(#blueGrad)" stroke="#fff" stroke-width="2"/>
                         <text x="140" y="40" text-anchor="middle" fill="white" font-family="Arial Black" font-size="32" font-weight="bold">DRAFT</text>
                     </g>
                     
-                    <!-- Bandeau 2020 -->
+                    <!-- "2020" band -->
                     <g transform="translate(80, 70)">
                         <path d="M0 10 L180 10 Q200 10 210 20 L220 30 Q225 35 215 40 L200 45 L0 45 Q-10 45 -5 35 L0 25 Z" 
                               fill="url(#redGrad)" stroke="#fff" stroke-width="2"/>
                         <text x="110" y="32" text-anchor="middle" fill="white" font-family="Arial Black" font-size="16" font-weight="bold">2020</text>
                     </g>
                     
-                    <!-- Étoiles -->
+                    <!-- Stars -->
                     <g transform="translate(320, 20)">
                         <polygon points="20,5 25,15 35,15 27,22 30,32 20,25 10,32 13,22 5,15 15,15" 
                                  fill="#fbbf24" stroke="#fff" stroke-width="1"/>
@@ -539,8 +543,6 @@ Cde qui work
                     </g>
                 </svg>
             </div>
-            
-            <!-- Section décoration supprimée pour éviter les problèmes de copyright -->
             
             <p id="roundInfo">Ronde 1 - Choix #1</p>
             <div id="connectionStatusMain" class="connection-status connecting" style="display: inline-flex; margin-top: 10px;">
@@ -665,7 +667,7 @@ Cde qui work
                     👥 Joueurs Disponibles (<span id="availableCount">0</span>)
                 </h2>
                 
-                <!-- Filtres disponibles pour tous les utilisateurs -->
+                <!-- Filters available to all users -->
                 <div id="searchFilters">
                     <input type="text" id="searchInput" placeholder="Rechercher un joueur..." class="search-input">
                     <select id="positionFilter" class="select-input">
@@ -713,10 +715,10 @@ Cde qui work
     </div>
 
     <script>
-        // Variables globales
+        // Global variables
         let players = [];
         let draftResults = [];
-        let draftOrder = []; // Nouveau: ordre de repêchage
+        let draftOrder = []; // New: draft order
         let selectedPlayer = null;
         let currentRound = 1;
         let currentPick = 1;
@@ -727,19 +729,19 @@ Cde qui work
         let isConnected = false;
         let useLocalStorage = false;
         
-        // Variables pour le compte à rebours
-        let timerDuration = 300; // 5 minutes par défaut (en secondes)
+        // Timer variables
+        let timerDuration = 300; // 5 minutes by default (in seconds)
         let timerRemaining = 300;
         let timerActive = false;
         let timerInterval = null;
 
-        // Configuration Firebase par défaut (à remplacer)
+        // Default Firebase configuration (to be replaced)
         const defaultFirebaseConfig = {
-            // Cette configuration doit être remplacée par celle de votre projet
+            // This configuration must be replaced by your project's configuration
             databaseURL: "https://votre-projet-default-rtdb.firebaseio.com/"
         };
 
-        // Données initiales (backup)
+        // Initial data (backup)
         const defaultPlayers = [
             {
                 id: 1,
@@ -769,7 +771,7 @@ Cde qui work
             }
         ];
 
-        // Initialisation Firebase
+        // Firebase Initialization
         function initializeFirebase() {
             const configText = document.getElementById('firebaseConfig').value.trim();
             
@@ -781,10 +783,10 @@ Cde qui work
             try {
                 const config = JSON.parse(configText);
                 
-                // Sauvegarder la configuration
+                // Save configuration
                 localStorage.setItem('firebase-config', configText);
                 
-                // Initialiser Firebase
+                // Initialize Firebase
                 firebaseApp = firebase.initializeApp(config);
                 database = firebase.database();
                 
@@ -819,11 +821,11 @@ Cde qui work
             }
         }
 
-        // Configuration des listeners temps réel
+        // Setup Realtime Listeners
         function setupRealtimeListeners() {
             if (!database || useLocalStorage) return;
 
-            // Listener pour les joueurs
+            // Listener for players
             database.ref('players').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -833,7 +835,7 @@ Cde qui work
                 updateConnectionStatus('connected', 'Connecté à Firebase');
             });
 
-            // Listener pour les résultats du draft
+            // Listener for draft results
             database.ref('draftResults').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -842,7 +844,7 @@ Cde qui work
                 }
             });
 
-            // Listener pour l'ordre de repêchage
+            // Listener for draft order
             database.ref('draftOrder').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -851,7 +853,7 @@ Cde qui work
                 }
             });
 
-            // Listener pour l'état du jeu
+            // Listener for game state
             database.ref('gameState').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -861,7 +863,7 @@ Cde qui work
                 }
             });
 
-            // Listener pour le timer
+            // Listener for timer
             database.ref('timer').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -879,12 +881,12 @@ Cde qui work
                 }
             });
 
-            // Listener pour la connexion
+            // Listener for connection status
             database.ref('.info/connected').on('value', (snapshot) => {
                 isConnected = snapshot.val();
                 if (isConnected) {
                     updateConnectionStatus('connected', 'Connecté');
-                    // Initialiser les données si c'est la première connexion
+                    // Initialize data if it's the first connection
                     initializeDefaultData();
                 } else {
                     updateConnectionStatus('disconnected', 'Connexion perdue');
@@ -914,10 +916,10 @@ Cde qui work
         function initializeDefaultData() {
             if (!database || useLocalStorage) return;
             
-            // Vérifier si les données existent déjà
+            // Check if data already exists
             database.ref('players').once('value', (snapshot) => {
                 if (!snapshot.exists()) {
-                    // Initialiser avec les données par défaut
+                    // Initialize with default data
                     database.ref('players').set(defaultPlayers);
                     database.ref('draftResults').set([]);
                     database.ref('draftOrder').set([]);
@@ -934,7 +936,7 @@ Cde qui work
             });
         }
 
-        // Fonctions du compte à rebours
+        // Timer functions
         function setTimer() {
             const minutes = parseInt(document.getElementById('timerMinutes').value) || 5;
             timerDuration = minutes * 60;
@@ -996,19 +998,19 @@ Cde qui work
                     timerRemaining--;
                     updateTimerDisplay();
                     
-                    // Sauvegarder l'état seulement si admin
+                    // Save state only if admin
                     if (isAdmin) {
                         saveTimerState();
                     }
                 } else {
-                    // Temps écoulé
+                    // Time elapsed
                     timerActive = false;
                     clearInterval(timerInterval);
                     timerInterval = null;
                     
                     if (isAdmin) {
-                        saveTimerState();
                         alert('⏰ Temps écoulé ! Le choix doit être fait.');
+                        saveTimerState();
                     }
                     updateTimerDisplay();
                 }
@@ -1020,14 +1022,14 @@ Cde qui work
             const seconds = timerRemaining % 60;
             const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             
-            // Mettre à jour l'affichage admin
+            // Update admin display
             const adminDisplay = document.getElementById('timerDisplay');
             if (adminDisplay) {
                 adminDisplay.textContent = timeString;
                 adminDisplay.style.color = timerRemaining <= 30 ? '#ef4444' : '#60a5fa';
             }
             
-            // Mettre à jour l'affichage spectateur
+            // Update viewer display
             const viewerDisplay = document.getElementById('timerDisplayViewer');
             const viewerStatus = document.getElementById('timerStatusViewer');
             if (viewerDisplay) {
@@ -1056,7 +1058,7 @@ Cde qui work
             }
         }
 
-        // Fonctions de connexion
+        // Login functions
         function loginAsAdmin() {
             const password = document.getElementById('adminPassword').value;
             if (password === 'lhss2020') {
@@ -1090,7 +1092,7 @@ Cde qui work
             updateInterface();
         }
 
-        // Gestion des données avec Firebase ou localStorage
+        // Data management with Firebase or localStorage
         function loadData() {
             if (useLocalStorage) {
                 const savedPlayers = localStorage.getItem('lhss-players');
@@ -1132,7 +1134,7 @@ Cde qui work
 
                 updateInterface();
             }
-            // En mode Firebase, les données sont chargées via les listeners
+            // In Firebase mode, data is loaded via listeners
         }
 
         function saveData() {
@@ -1143,7 +1145,7 @@ Cde qui work
                 localStorage.setItem('lhss-round', currentRound.toString());
                 localStorage.setItem('lhss-pick', currentPick.toString());
             } else if (database && isAdmin) {
-                // Sauvegarder dans Firebase (seulement les admins peuvent modifier)
+                // Save to Firebase (only admins can modify)
                 database.ref('players').set(players);
                 database.ref('draftResults').set(draftResults);
                 database.ref('draftOrder').set(draftOrder);
@@ -1154,7 +1156,7 @@ Cde qui work
             }
         }
 
-        // Interface
+        // Interface updates
         function updateInterface() {
             updateRoundInfo();
             updatePlayersList();
@@ -1215,7 +1217,7 @@ Cde qui work
                 </div>
             `).join('');
 
-            // Mettre à jour le filtre des positions
+            // Update position filter
             const positions = [...new Set(players.map(p => p.position))].filter(Boolean).sort();
             const positionFilterEl = document.getElementById('positionFilter');
             if (positionFilterEl) {
@@ -1278,8 +1280,8 @@ Cde qui work
                         </tr>
                     </thead>
                     <tbody>
-                        ${draftResults.map(player => `
-                            <tr>
+                        ${draftResults.map((player, index) => `
+                            <tr ${isAdmin ? `class="editable" onclick="editDraftResult(${index})"` : ''}>
                                 <td>${player.round}</td>
                                 <td>${player.overallPick}</td>
                                 <td>${player.team}</td>
@@ -1295,7 +1297,57 @@ Cde qui work
             `;
         }
 
-        // Gestion de l'ordre de repêchage
+        /**
+         * Allows an admin to edit a specific draft result entry.
+         * @param {number} index The index of the draft result in the draftResults array.
+         */
+        function editDraftResult(index) {
+            if (!isAdmin) {
+                alert("Vous n'avez pas les permissions d'administrateur pour modifier ce tableau.");
+                return;
+            }
+
+            const currentResult = draftResults[index];
+            if (!currentResult) {
+                alert("Résultat de repêchage introuvable.");
+                return;
+            }
+
+            // Use prompt for simplicity. For a real app, a modal would be better.
+            const newTeam = prompt(`Modifier l'équipe pour le choix #${currentResult.overallPick} (actuel: ${currentResult.team}):`, currentResult.team);
+            if (newTeam === null) return; // User cancelled
+
+            const newNom = prompt(`Modifier le nom du joueur pour le choix #${currentResult.overallPick} (actuel: ${currentResult.nom}):`, currentResult.nom);
+            if (newNom === null) return;
+
+            const newPosition = prompt(`Modifier la position du joueur (actuel: ${currentResult.position}):`, currentResult.position);
+            if (newPosition === null) return;
+
+            const newPotentiel = prompt(`Modifier le potentiel du joueur (actuel: ${currentResult.potentiel}):`, currentResult.potentiel);
+            if (newPotentiel === null) return;
+
+            const newStyle = prompt(`Modifier le style du joueur (actuel: ${currentResult.style}):`, currentResult.style);
+            if (newStyle === null) return;
+
+            const newPrecision = prompt(`Modifier la précision du joueur (actuel: ${currentResult.precision}):`, currentResult.precision);
+            if (newPrecision === null) return;
+
+
+            // Update the draft result object
+            draftResults[index].team = newTeam;
+            draftResults[index].nom = newNom;
+            draftResults[index].position = newPosition;
+            draftResults[index].potentiel = parseFloat(newPotentiel) || currentResult.potentiel; // Parse as float
+            draftResults[index].style = newStyle;
+            draftResults[index].precision = newPrecision;
+
+            saveData(); // Save changes to Firebase/localStorage
+            updateInterface(); // Refresh the UI
+            alert("Le résultat du repêchage a été mis à jour.");
+        }
+
+
+        // Draft order management
         function importDraftOrder(event) {
             if (!isAdmin) return;
             if (!isConnected && !useLocalStorage) {
@@ -1320,7 +1372,7 @@ Cde qui work
                             overall: parseInt(row.Global || row.overall || row.Overall) || ((parseInt(row.Ronde || row.round || 1) - 1) * 26 + parseInt(row.Choix || row.pick || 1))
                         })).filter(order => order.team !== '');
 
-                        // Trier par choix global
+                        // Sort by overall pick
                         orderData.sort((a, b) => a.overall - b.overall);
                         
                         draftOrder = orderData;
@@ -1352,7 +1404,7 @@ Cde qui work
             const currentPickerEl = document.getElementById('currentPickerText');
             const currentTeamEl = document.getElementById('currentTeamText');
             
-            // Mettre à jour le choix actuel
+            // Update current pick display
             if (currentPickerEl) {
                 currentPickerEl.textContent = `Ronde ${currentRound} - Choix #${currentPick}`;
             }
@@ -1363,7 +1415,7 @@ Cde qui work
                     currentTeamEl.textContent = `Au tour de: ${currentTeam}`;
                     currentTeamEl.style.color = '#10b981';
                     
-                    // Mettre à jour automatiquement l'équipe sélectionnée pour l'admin
+                    // Automatically update selected team for admin
                     if (isAdmin) {
                         selectedTeam = currentTeam;
                         const teamSelect = document.getElementById('teamSelect');
@@ -1390,14 +1442,14 @@ Cde qui work
                 return;
             }
 
-            // Calculer le choix global actuel
+            // Calculate current overall pick
             const currentOverallPick = (currentRound - 1) * 26 + currentPick;
             
-            // Filtrer pour avoir seulement les choix qui n'ont pas encore été faits
+            // Filter to get only picks that haven't been made yet
             const upcomingPicks = draftOrder.filter(order => {
                 const orderOverallPick = order.overall;
                 return orderOverallPick >= currentOverallPick;
-            }).slice(0, 10); // Prendre seulement les 10 prochains
+            }).slice(0, 10); // Take only the next 10
 
             if (upcomingPicks.length === 0) {
                 orderEl.innerHTML = `
@@ -1497,13 +1549,13 @@ Cde qui work
 
             draftResults.push(draftedPlayer);
             
-            // Marquer le joueur comme repêché
+            // Mark the player as drafted
             const playerIndex = players.findIndex(p => p.id === selectedPlayer.id);
             if (playerIndex !== -1) {
                 players[playerIndex].drafted = true;
             }
 
-            // Avancer au prochain choix
+            // Advance to the next pick
             if (currentPick < 26) {
                 currentPick++;
             } else {
@@ -1511,7 +1563,7 @@ Cde qui work
                 currentRound++;
             }
 
-            // Redémarrer le timer automatiquement pour le prochain choix
+            // Automatically restart the timer for the next pick
             if (currentRound <= 5) {
                 timerRemaining = timerDuration;
                 timerActive = true;
@@ -1541,7 +1593,7 @@ Cde qui work
                 currentRound++;
             }
 
-            // Redémarrer le timer automatiquement pour le prochain choix
+            // Automatically restart the timer for the next pick
             if (currentRound <= 5) {
                 timerRemaining = timerDuration;
                 timerActive = true;
@@ -1569,7 +1621,7 @@ Cde qui work
                 currentPick = 1;
                 selectedTeam = 'Capitals';
                 
-                // Réinitialiser le timer
+                // Reset the timer
                 timerActive = false;
                 timerRemaining = timerDuration;
                 if (timerInterval) {
@@ -1666,7 +1718,7 @@ Cde qui work
             a.click();
         }
 
-        // Configuration Firebase par défaut (remplacez par la vôtre)
+        // Default Firebase configuration (replace with your own)
         const defaultConfig = {
             "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
             "authDomain": "lhssdraft.firebaseapp.com",
@@ -1680,7 +1732,7 @@ Cde qui work
 
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
-            // Vérifier s'il y a une configuration Firebase sauvegardée
+            // Check if there is a saved Firebase configuration
             const savedConfig = localStorage.getItem('firebase-config');
             const localMode = localStorage.getItem('use-local-mode');
             
@@ -1699,7 +1751,7 @@ Cde qui work
                 }
             }
 
-            // Toujours utiliser la configuration par défaut pour tous les utilisateurs
+            // Always use the default configuration for all users
             initializeFirebaseWithConfig(defaultConfig);
 
             document.getElementById('searchInput')?.addEventListener('input', updatePlayersList);
@@ -1717,7 +1769,7 @@ Cde qui work
                 showLoginForm();
             } catch (error) {
                 console.error('Erreur Firebase:', error);
-                // En cas d'erreur, basculer en mode local
+                // In case of error, switch to local mode
                 useLocalMode();
             }
         }
