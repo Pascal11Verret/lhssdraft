@@ -569,7 +569,7 @@
                 <svg class="lhss-draft-logo" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
                     <!-- Main background -->
                     <defs>
-                        <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <linearGradient id="blueGrad" x1="0%" y1="0%" y2="0%">
                             <stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
                             <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
                         </linearGradient>
@@ -712,9 +712,19 @@
                 <div class="loading">
                     <p>Importez un fichier CSV avec l'ordre de repêchage</p>
                     <div style="margin-top: 10px; font-size: 0.8rem; color: #9ca3af;">
-                        Format: Ronde, Choix, Équipe
+                        Format: Ronde, Choix, Équipe<br>
+                        (où 'Choix' est le numéro de choix global)
+                        <br>
+                        Exemple: 1, 1, Capitals
                     </div>
                 </div>
+            </div>
+            <!-- Slider for Draft Order Navigation -->
+            <div id="draftOrderSliderContainer" style="margin-top: 20px; text-align: center;">
+                <label for="draftOrderSlider" style="display: block; margin-bottom: 10px; color: #d1d5db;">Naviguer dans l'ordre de repêchage:</label>
+                <input type="range" id="draftOrderSlider" min="0" value="0"
+                       style="width: 90%; -webkit-appearance: none; appearance: none; background: #4b5563; outline: none; border-radius: 5px; height: 8px;">
+                <div id="sliderValue" style="font-size: 0.9rem; color: #9ca3af; margin-top: 5px;"></div>
             </div>
         </div>
 
@@ -787,6 +797,7 @@
         let firebaseApp = null;
         let isConnected = false;
         let useLocalStorage = false;
+        let draftOrderDisplayOffset = 0; // New: Offset for draft order table display
 
         // Timer variables
         let timerDuration = 300; // 5 minutes by default (in seconds)
@@ -1197,6 +1208,7 @@
                 const savedRound = localStorage.getItem('lhss-round');
                 const savedPick = localStorage.getItem('lhss-pick');
                 const savedTimer = localStorage.getItem('timer-state');
+                const savedDisplayOffset = localStorage.getItem('draft-order-offset'); // Load saved offset
 
                 if (savedPlayers) {
                     players = JSON.parse(savedPlayers);
@@ -1227,6 +1239,10 @@
                     timerRemaining = timerState.remaining || 300;
                     timerActive = timerState.active || false;
                 }
+                if (savedDisplayOffset) {
+                    draftOrderDisplayOffset = parseInt(savedDisplayOffset);
+                }
+
 
                 updateInterface();
             }
@@ -1240,6 +1256,7 @@
                 localStorage.setItem('lhss-order', JSON.stringify(draftOrder));
                 localStorage.setItem('lhss-round', currentRound.toString());
                 localStorage.setItem('lhss-pick', currentPick.toString());
+                localStorage.setItem('draft-order-offset', draftOrderDisplayOffset.toString()); // Save offset
             } else if (database && isAdmin) {
                 // Save to Firebase (only admins can modify)
                 database.ref('players').set(players);
@@ -1249,6 +1266,7 @@
                     currentRound: currentRound,
                     currentPick: currentPick
                 });
+                // For Firebase, we don't need to save the display offset as it's local UI state
             }
         }
 
@@ -1455,51 +1473,55 @@
             if (!file) return;
 
             Papa.parse(file, {
-                header: true, // Expects headers like Ronde, Choix, Équipe
-                dynamicTyping: true,
+                header: true, // Assume headers are present: Ronde, Choix, Équipe
+                dynamicTyping: true, // Attempt to convert numbers
                 skipEmptyLines: true,
                 complete: function(results) {
                     console.log('--- CSV Import Debugging ---');
                     console.log('Raw PapaParse results.data:', results.data);
+                    console.log('Raw PapaParse results.errors:', results.errors); // Log errors too
 
                     try {
-                        const orderData = results.data.map((row, index) => {
-                            // Attempt to get values robustly, assuming headers might be inconsistent
-                            // or trying to get by index if headers are truly missing (less reliable)
-                            const rawRound = row.Ronde || row.round || row.Round || row[Object.keys(row)[0]];
-                            const rawPick = row.Choix || row.pick || row.Pick || row[Object.keys(row)[1]];
-                            const rawTeam = row.Équipe || row.Equipe || row.team || row.Team || row[Object.keys(row)[2]];
+                        const orderData = results.data.map((row) => {
+                            // Try to get 'Ronde' and 'Choix' (which is actually overall pick in user's data)
+                            const rawRound = row.Ronde || row.round || row.Round;
+                            const rawOverallPick = row.Choix || row.overall || row.Overall || row['Choix totale']; // Try 'Choix' first for overall
+                            const rawTeam = row.Équipe || row.Equipe || row.team || row.Team || '';
 
                             const parsedRound = parseInt(rawRound);
-                            const parsedPick = parseInt(rawPick);
+                            const parsedOverallPick = parseInt(rawOverallPick);
 
-                            // Calculate overall pick, ensuring valid numbers
-                            // If parsedRound or parsedPick is NaN, default to 1 for calculation to avoid NaN in overall
-                            const calculatedOverall = (isNaN(parsedRound) ? 1 : parsedRound - 1) * 26 + (isNaN(parsedPick) ? 1 : parsedPick);
+                            // Calculate pick within the round (1-26)
+                            // Handle cases where overall pick might be 0 or invalid
+                            const calculatedPickInRound = (isNaN(parsedOverallPick) || parsedOverallPick === 0) ? 1 : (parsedOverallPick - 1) % 26 + 1;
 
                             const entry = {
-                                id: index + 1, // Assign a unique ID for editing
+                                // ID will be reassigned after sorting
                                 round: isNaN(parsedRound) ? 1 : parsedRound,
-                                pick: isNaN(parsedPick) ? 1 : parsedPick,
-                                team: rawTeam || '',
-                                overall: calculatedOverall
+                                pick: calculatedPickInRound, // This is the pick within the round (1-26)
+                                team: rawTeam,
+                                overall: isNaN(parsedOverallPick) ? ((isNaN(parsedRound) ? 1 : parsedRound - 1) * 26 + calculatedPickInRound) : parsedOverallPick // Use parsedOverallPick if valid
                             };
 
-                            console.log(`Row ${index + 1}: Raw: {Ronde: "${rawRound}", Choix: "${rawPick}", Équipe: "${rawTeam}"}, Parsed: {Round: ${entry.round}, Pick: ${entry.pick}, Overall: ${entry.overall}}`);
+                            console.log(`Raw Row: ${JSON.stringify(row)}, Parsed Entry: ${JSON.stringify(entry)}`);
                             return entry;
                         }).filter(order => order.team !== ''); // Filter out rows without a team
 
                         // Sort by overall pick
                         orderData.sort((a, b) => a.overall - b.overall);
 
-                        draftOrder = orderData;
+                        // Assign new IDs after sorting to ensure consistent IDs for editing
+                        const finalDraftOrder = orderData.map((item, idx) => ({ ...item, id: idx + 1 }));
+
+
+                        draftOrder = finalDraftOrder;
 
                         saveData();
                         updateInterface();
 
-                        showCustomModal('Importation réussie', `${orderData.length} entrées d'ordre importées avec succès!`);
+                        showCustomModal('Importation réussie', `${finalDraftOrder.length} entrées d'ordre importées avec succès!`);
                     } catch (error) {
-                        showCustomModal('Erreur d\'importation', 'Erreur lors de l\'importation du fichier CSV d\'ordre. Veuillez vérifier le format et les en-têtes (Ronde, Choix, Équipe).');
+                        showCustomModal('Erreur d\'importation', 'Erreur lors de l\'importation du fichier CSV d\'ordre. Veuillez vérifier le format et les en-têtes (Ronde, Choix, Équipe). Assurez-vous que la colonne "Choix" contient le numéro de choix GLOBAL.');
                         console.error('Import error:', error);
                     }
                     console.log('Filtered and Sorted draftOrder after import:', draftOrder);
@@ -1522,6 +1544,8 @@
             const orderEl = document.getElementById('draftOrderTable');
             const currentPickerEl = document.getElementById('currentPickerText');
             const currentTeamEl = document.getElementById('currentTeamText');
+            const slider = document.getElementById('draftOrderSlider');
+            const sliderValueDisplay = document.getElementById('sliderValue');
 
             // Update current pick display
             if (currentPickerEl) {
@@ -1554,32 +1578,52 @@
                         <p>Importez un fichier CSV avec l'ordre de repêchage</p>
                         <div style="margin-top: 10px; font-size: 0.8rem; color: #9ca3af;">
                             Format: Ronde, Choix, Équipe<br>
+                            (où 'Choix' est le numéro de choix global)
+                            <br>
                             Exemple: 1, 1, Capitals
                         </div>
                     </div>
                 `;
+                // Hide slider if no data
+                if (slider) slider.style.display = 'none';
+                if (sliderValueDisplay) sliderValueDisplay.style.display = 'none';
                 return;
             }
+
+            // Show slider if data exists
+            if (slider) slider.style.display = 'block';
+            if (sliderValueDisplay) sliderValueDisplay.style.display = 'block';
+
+
+            // Configure slider
+            const maxSliderValue = Math.max(0, draftOrder.length - 1); // Max index of draftOrder
+            if (slider) {
+                slider.max = maxSliderValue;
+                // Ensure display offset is within bounds
+                draftOrderDisplayOffset = Math.min(draftOrderDisplayOffset, maxSliderValue);
+                slider.value = draftOrderDisplayOffset;
+            }
+            if (sliderValueDisplay) {
+                const startOverall = draftOrder[draftOrderDisplayOffset]?.overall || '';
+                const endOverall = draftOrder[Math.min(draftOrderDisplayOffset + 9, draftOrder.length - 1)]?.overall || '';
+                sliderValueDisplay.textContent = `Affichage du choix ${startOverall} à ${endOverall}`;
+            }
+
 
             // Calculate current overall pick
             const currentOverallPick = (currentRound - 1) * 26 + currentPick;
 
-            // Find the starting index for display: the first pick whose overall is >= currentOverallPick
-            let startIndex = draftOrder.findIndex(order => order.overall >= currentOverallPick);
+            // Determine the range of picks to display based on displayOffset
+            const startIndex = draftOrderDisplayOffset;
+            const endIndex = Math.min(startIndex + 10, draftOrder.length);
+            const picksToDisplay = draftOrder.slice(startIndex, endIndex);
 
-            let picksToDisplay = [];
             let displayMessage = '';
-
-            if (startIndex !== -1) {
-                // If the found pick's overall is much higher than currentOverallPick, it means there's a gap in the data.
-                if (draftOrder[startIndex].overall > currentOverallPick) {
-                    displayMessage = `<p style="color: #fbbf24; margin-bottom: 10px;">Attention: Le choix global actuel (${currentOverallPick}) n'est pas trouvé précisément dans l'ordre importé. Affichage à partir du prochain choix disponible (${draftOrder[startIndex].overall}).</p>`;
-                }
-                picksToDisplay = draftOrder.slice(startIndex, startIndex + 10); // Get the next 10 picks
-            } else {
-                // If startIndex is -1, it means currentOverallPick is beyond all existing picks in draftOrder.
-                displayMessage = `<p style="color: #9ca3af; margin-bottom: 10px;">Aucun choix restant dans l'ordre défini après le choix global ${currentOverallPick}.</p>`;
+            // Check if the current overall pick is actually in the draftOrder array
+            if (!draftOrder.some(order => order.overall === currentOverallPick)) {
+                 displayMessage = `<p style="color: #fbbf24; margin-bottom: 10px;">Attention: Le choix global actuel (${currentOverallPick}) n'est pas trouvé précisément dans l'ordre importé. Naviguez avec le curseur.</p>`;
             }
+
 
             if (picksToDisplay.length === 0 && !displayMessage) {
                 displayMessage = `<p>Aucun choix restant dans l'ordre défini ou l'ordre est terminé.</p>`;
@@ -1612,16 +1656,25 @@
                 </table>
             `;
 
+            // Add event listener for slider if not already added
+            if (slider && !slider.hasAttribute('data-listener')) {
+                slider.addEventListener('input', (event) => {
+                    draftOrderDisplayOffset = parseInt(event.target.value);
+                    updateDraftOrder(); // Re-render table with new offset
+                    if (useLocalStorage) {
+                        localStorage.setItem('draft-order-offset', draftOrderDisplayOffset.toString());
+                    }
+                });
+                slider.setAttribute('data-listener', 'true'); // Mark listener as added
+            }
+
             // Add a console log to help the user debug their draftOrder data
             console.log('--- Debugging Draft Order Display ---');
             console.log('Current Round:', currentRound, 'Current Pick:', currentPick);
             console.log('Calculated Current Overall Pick:', currentOverallPick);
             console.log('Draft Order Array (first 20 entries):', draftOrder.slice(0, 20));
-            console.log('Found startIndex:', startIndex);
-            if (startIndex !== -1) {
-                console.log('Overall at startIndex:', draftOrder[startIndex].overall);
-            }
-            console.log('Picks to Display:', picksToDisplay.map(p => p.overall));
+            console.log('Display Offset:', draftOrderDisplayOffset);
+            console.log('Picks to Display (Overall):', picksToDisplay.map(p => p.overall));
             console.log('-----------------------------------');
         }
 
@@ -1643,21 +1696,27 @@
                 return;
             }
 
-            const newRound = prompt(`Modifier la ronde pour le choix global #${currentOrder.overall} (actuel: ${currentOrder.round}):`, currentOrder.round);
-            if (newRound === null) return; // User cancelled
+            // Prompt for overall pick and team
+            const newOverallStr = prompt(`Modifier le choix GLOBAL (total) pour le choix #${currentOrder.overall} (actuel: ${currentOrder.overall}):`, currentOrder.overall);
+            if (newOverallStr === null) return; // User cancelled
+            const newOverall = parseInt(newOverallStr);
+            if (isNaN(newOverall) || newOverall <= 0) {
+                showCustomModal('Erreur de saisie', 'Veuillez entrer un nombre valide et positif pour le choix global.');
+                return;
+            }
 
-            const newPick = prompt(`Modifier le choix de ronde pour le choix global #${currentOrder.overall} (actuel: ${currentOrder.pick}):`, currentOrder.pick);
-            if (newPick === null) return; // User cancelled
-
-            const newTeam = prompt(`Modifier l'équipe pour le choix global #${currentOrder.overall} (actuel: ${currentOrder.team}):`, currentOrder.team);
+            const newTeam = prompt(`Modifier l'équipe pour le choix #${currentOrder.overall} (actuel: ${currentOrder.team}):`, currentOrder.team);
             if (newTeam === null) return; // User cancelled
 
+            // Recalculate round and pick based on the new overall pick
+            const newRound = Math.floor((newOverall - 1) / 26) + 1;
+            const newPick = (newOverall - 1) % 26 + 1;
+
             // Update the draft order object
-            draftOrder[orderIndex].round = parseInt(newRound) || currentOrder.round;
-            draftOrder[orderIndex].pick = parseInt(newPick) || currentOrder.pick;
+            draftOrder[orderIndex].overall = newOverall;
+            draftOrder[orderIndex].round = newRound;
+            draftOrder[orderIndex].pick = newPick;
             draftOrder[orderIndex].team = newTeam;
-            // Recalculate overall pick in case round/pick changed
-            draftOrder[orderIndex].overall = (draftOrder[orderIndex].round - 1) * 26 + draftOrder[orderIndex].pick;
 
             // Re-sort the draftOrder array after modification to maintain correct order
             draftOrder.sort((a, b) => a.overall - b.overall);
