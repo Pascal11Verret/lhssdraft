@@ -61,7 +61,7 @@
         @media (max-width: 768px) {
             .lhss-draft-logo {
                 width: 300px;
-                height: 90px;
+                height: 90px;api
             }
         }
 
@@ -224,7 +224,7 @@
             border-radius: 8px;
             margin-bottom: 8px;
             display: flex;
-            justify-content: space-between; /* Changed from 'between' to 'space-between' */
+            justify-content: space-between;
             align-items: center;
         }
 
@@ -415,6 +415,42 @@
             background: rgba(245, 158, 11, 0.2);
             color: #f59e0b;
         }
+
+        /* Custom Modal Styles */
+        .custom-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .custom-modal-content {
+            background: rgba(31, 41, 55, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            border: 1px solid #4b5563;
+        }
+
+        .custom-modal-content p {
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            color: #e5e7eb;
+        }
+
+        .custom-modal-content .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
     </style>
 </head>
 <body>
@@ -445,7 +481,8 @@
             "messagingSenderId": "441205645400",
             "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
             "measurementId": "G-N7RN68KTND"
-}'
+}
+IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                   style="width: 100%; height: 150px; margin-bottom: 15px; padding: 10px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 8px; color: white; font-family: monospace; font-size: 0.8rem;"></textarea>
         
         <button onclick="initializeFirebase()" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
@@ -712,6 +749,28 @@
             <h2>📊 Tableau Récapitulatif</h2>
             <div id="summaryTable"></div>
         </div>
+
+        <!-- Full Draft Order Table (New Panel) -->
+        <div id="fullDraftOrderPanel" class="panel" style="margin-top: 30px;">
+            <h2>📋 Ordre de Repêchage Complet</h2>
+            <div id="fullDraftOrderTable">
+                <div class="loading">
+                    <p>Importez un fichier CSV avec l'ordre de repêchage pour voir le tableau complet.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modal HTML -->
+    <div id="customModal" class="custom-modal-overlay hidden">
+        <div class="custom-modal-content">
+            <p id="modalMessage"></p>
+            <div class="modal-buttons">
+                <button id="modalConfirmBtn" class="btn btn-primary hidden">Confirmer</button>
+                <button id="modalCancelBtn" class="btn btn-danger hidden">Annuler</button>
+                <button id="modalAlertBtn" class="btn btn-primary hidden">OK</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -738,7 +797,15 @@
         // Default Firebase configuration (to be replaced)
         const defaultFirebaseConfig = {
             // This configuration must be replaced by your project's configuration
-            databaseURL: "https://votre-projet-default-rtdb.firebaseio.com/"
+            // Example:
+            // "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
+            // "authDomain": "lhssdraft.firebaseapp.com",
+            // "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
+            // "projectId": "lhssdraft",
+            // "storageBucket": "lhssdraft.firebasestorage.app",
+            // "messagingSenderId": "441205645400",
+            // "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
+            // "measurementId": "G-N7RN68KTND"
         };
 
         // Initial data (backup)
@@ -771,22 +838,71 @@
             }
         ];
 
+        // Custom Modal Functions
+        let modalCallback = null;
+
+        function showMessage(message, type, callback = null) {
+            const modal = document.getElementById('customModal');
+            const modalMessage = document.getElementById('modalMessage');
+            const modalConfirmBtn = document.getElementById('modalConfirmBtn');
+            const modalCancelBtn = document.getElementById('modalCancelBtn');
+            const modalAlertBtn = document.getElementById('modalAlertBtn');
+
+            modalMessage.textContent = message;
+            modalCallback = callback;
+
+            // Reset button visibility
+            modalConfirmBtn.classList.add('hidden');
+            modalCancelBtn.classList.add('hidden');
+            modalAlertBtn.classList.add('hidden');
+
+            // Set button visibility based on type
+            if (type === 'confirm') {
+                modalConfirmBtn.classList.remove('hidden');
+                modalCancelBtn.classList.remove('hidden');
+            } else { // type === 'alert'
+                modalAlertBtn.classList.remove('hidden');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function hideMessage() {
+            document.getElementById('customModal').classList.add('hidden');
+            modalCallback = null;
+        }
+
+        document.getElementById('modalAlertBtn').addEventListener('click', hideMessage);
+        document.getElementById('modalConfirmBtn').addEventListener('click', () => {
+            if (modalCallback) {
+                modalCallback(true);
+            }
+            hideMessage();
+        });
+        document.getElementById('modalCancelBtn').addEventListener('click', () => {
+            if (modalCallback) {
+                modalCallback(false);
+            }
+            hideMessage();
+        });
+
+
         // Firebase Initialization
         function initializeFirebase() {
             const configText = document.getElementById('firebaseConfig').value.trim();
             
             if (!configText) {
-                alert('Veuillez entrer votre configuration Firebase');
+                showMessage('Veuillez entrer votre configuration Firebase', 'alert');
                 return;
             }
             
             try {
                 const config = JSON.parse(configText);
                 
-                // Save configuration
+                // Sauvegarder la configuration
                 localStorage.setItem('firebase-config', configText);
                 
-                // Initialize Firebase
+                // Initialiser Firebase
                 firebaseApp = firebase.initializeApp(config);
                 database = firebase.database();
                 
@@ -794,7 +910,7 @@
                 showLoginForm();
                 
             } catch (error) {
-                alert('Erreur dans la configuration Firebase: ' + error.message);
+                showMessage('Erreur dans la configuration Firebase: ' + error.message + '. Veuillez vérifier le format JSON.', 'alert');
                 console.error('Firebase initialization error:', error);
             }
         }
@@ -833,6 +949,10 @@
                     updateInterface();
                 }
                 updateConnectionStatus('connected', 'Connecté à Firebase');
+            }, (error) => {
+                console.error("Firebase Players Listener Error:", error);
+                showMessage("Erreur de lecture des joueurs depuis Firebase: " + error.message, 'alert');
+                updateConnectionStatus('disconnected', 'Erreur Firebase');
             });
 
             // Listener for draft results
@@ -842,6 +962,9 @@
                     draftResults = data;
                     updateInterface();
                 }
+            }, (error) => {
+                console.error("Firebase Draft Results Listener Error:", error);
+                showMessage("Erreur de lecture des résultats de repêchage depuis Firebase: " + error.message, 'alert');
             });
 
             // Listener for draft order
@@ -851,6 +974,9 @@
                     draftOrder = data;
                     updateInterface();
                 }
+            }, (error) => {
+                console.error("Firebase Draft Order Listener Error:", error);
+                showMessage("Erreur de lecture de l'ordre de repêchage depuis Firebase: " + error.message, 'alert');
             });
 
             // Listener for game state
@@ -861,6 +987,9 @@
                     currentPick = data.currentPick || 1;
                     updateInterface();
                 }
+            }, (error) => {
+                console.error("Firebase Game State Listener Error:", error);
+                showMessage("Erreur de lecture de l'état du jeu depuis Firebase: " + error.message, 'alert');
             });
 
             // Listener for timer
@@ -879,14 +1008,17 @@
                     }
                     updateTimerDisplay();
                 }
+            }, (error) => {
+                console.error("Firebase Timer Listener Error:", error);
+                showMessage("Erreur de lecture du timer depuis Firebase: " + error.message, 'alert');
             });
 
-            // Listener for connection status
+            // Listener for connection
             database.ref('.info/connected').on('value', (snapshot) => {
                 isConnected = snapshot.val();
                 if (isConnected) {
                     updateConnectionStatus('connected', 'Connecté');
-                    // Initialize data if it's the first connection
+                    // Initialiser les données si c'est la première connexion
                     initializeDefaultData();
                 } else {
                     updateConnectionStatus('disconnected', 'Connexion perdue');
@@ -916,27 +1048,37 @@
         function initializeDefaultData() {
             if (!database || useLocalStorage) return;
             
-            // Check if data already exists
+            // Vérifier si les données existent déjà
             database.ref('players').once('value', (snapshot) => {
                 if (!snapshot.exists()) {
-                    // Initialize with default data
-                    database.ref('players').set(defaultPlayers);
-                    database.ref('draftResults').set([]);
-                    database.ref('draftOrder').set([]);
+                    // Initialiser avec les données par défaut
+                    database.ref('players').set(defaultPlayers)
+                        .then(() => console.log("Données par défaut des joueurs initialisées."))
+                        .catch(error => console.error("Erreur d'initialisation des joueurs:", error));
+                    database.ref('draftResults').set([])
+                        .then(() => console.log("Résultats de repêchage par défaut initialisés."))
+                        .catch(error => console.error("Erreur d'initialisation des résultats:", error));
+                    database.ref('draftOrder').set([])
+                        .then(() => console.log("Ordre de repêchage par défaut initialisé."))
+                        .catch(error => console.error("Erreur d'initialisation de l'ordre:", error));
                     database.ref('gameState').set({
                         currentRound: 1,
                         currentPick: 1
-                    });
+                    })
+                        .then(() => console.log("État du jeu par défaut initialisé."))
+                        .catch(error => console.error("Erreur d'initialisation de l'état du jeu:", error));
                     database.ref('timer').set({
                         duration: 300,
                         remaining: 300,
                         active: false
-                    });
+                    })
+                        .then(() => console.log("Timer par défaut initialisé."))
+                        .catch(error => console.error("Erreur d'initialisation du timer:", error));
                 }
             });
         }
 
-        // Timer functions
+        // Fonctions du compte à rebours
         function setTimer() {
             const minutes = parseInt(document.getElementById('timerMinutes').value) || 5;
             timerDuration = minutes * 60;
@@ -998,18 +1140,18 @@
                     timerRemaining--;
                     updateTimerDisplay();
                     
-                    // Save state only if admin
+                    // Sauvegarder l'état seulement si admin
                     if (isAdmin) {
                         saveTimerState();
                     }
                 } else {
-                    // Time elapsed
+                    // Temps écoulé
                     timerActive = false;
                     clearInterval(timerInterval);
                     timerInterval = null;
                     
                     if (isAdmin) {
-                        alert('⏰ Temps écoulé ! Le choix doit être fait.');
+                        showMessage('⏰ Temps écoulé ! Le choix doit être fait.', 'alert');
                         saveTimerState();
                     }
                     updateTimerDisplay();
@@ -1022,14 +1164,14 @@
             const seconds = timerRemaining % 60;
             const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             
-            // Update admin display
+            // Mettre à jour l'affichage admin
             const adminDisplay = document.getElementById('timerDisplay');
             if (adminDisplay) {
                 adminDisplay.textContent = timeString;
                 adminDisplay.style.color = timerRemaining <= 30 ? '#ef4444' : '#60a5fa';
             }
             
-            // Update viewer display
+            // Mettre à jour l'affichage spectateur
             const viewerDisplay = document.getElementById('timerDisplayViewer');
             const viewerStatus = document.getElementById('timerStatusViewer');
             if (viewerDisplay) {
@@ -1054,11 +1196,11 @@
                     duration: timerDuration,
                     remaining: timerRemaining,
                     active: timerActive
-                });
+                }).catch(error => console.error("Erreur de sauvegarde du timer:", error));
             }
         }
 
-        // Login functions
+        // Fonctions de connexion
         function loginAsAdmin() {
             const password = document.getElementById('adminPassword').value;
             if (password === 'lhss2020') {
@@ -1067,7 +1209,7 @@
                 document.getElementById('statusIndicator').className = 'status-indicator status-admin';
                 showMainApp();
             } else {
-                alert('Mot de passe incorrect!');
+                showMessage('Mot de passe incorrect!', 'alert');
             }
         }
 
@@ -1092,7 +1234,7 @@
             updateInterface();
         }
 
-        // Data management with Firebase or localStorage
+        // Gestion des données avec Firebase ou localStorage
         function loadData() {
             if (useLocalStorage) {
                 const savedPlayers = localStorage.getItem('lhss-players');
@@ -1134,7 +1276,7 @@
 
                 updateInterface();
             }
-            // In Firebase mode, data is loaded via listeners
+            // En mode Firebase, les données sont chargées via les listeners
         }
 
         function saveData() {
@@ -1145,18 +1287,18 @@
                 localStorage.setItem('lhss-round', currentRound.toString());
                 localStorage.setItem('lhss-pick', currentPick.toString());
             } else if (database && isAdmin) {
-                // Save to Firebase (only admins can modify)
-                database.ref('players').set(players);
-                database.ref('draftResults').set(draftResults);
-                database.ref('draftOrder').set(draftOrder);
+                // Sauvegarder dans Firebase (seulement les admins peuvent modifier)
+                database.ref('players').set(players).catch(error => console.error("Erreur de sauvegarde des joueurs:", error));
+                database.ref('draftResults').set(draftResults).catch(error => console.error("Erreur de sauvegarde des résultats de repêchage:", error));
+                database.ref('draftOrder').set(draftOrder).catch(error => console.error("Erreur de sauvegarde de l'ordre de repêchage:", error));
                 database.ref('gameState').set({
                     currentRound: currentRound,
                     currentPick: currentPick
-                });
+                }).catch(error => console.error("Erreur de sauvegarde de l'état du jeu:", error));
             }
         }
 
-        // Interface updates
+        // Interface
         function updateInterface() {
             updateRoundInfo();
             updatePlayersList();
@@ -1164,6 +1306,7 @@
             updatePlayerCount();
             updateSummaryTable();
             updateDraftOrder();
+            updateFullDraftOrderTable(); // Call the new function
             updateTimerDisplay();
         }
 
@@ -1217,7 +1360,7 @@
                 </div>
             `).join('');
 
-            // Update position filter
+            // Mettre à jour le filtre des positions
             const positions = [...new Set(players.map(p => p.position))].filter(Boolean).sort();
             const positionFilterEl = document.getElementById('positionFilter');
             if (positionFilterEl) {
@@ -1303,17 +1446,17 @@
          */
         function editDraftResult(index) {
             if (!isAdmin) {
-                alert("Vous n'avez pas les permissions d'administrateur pour modifier ce tableau.");
+                showMessage("Vous n'avez pas les permissions d'administrateur pour modifier ce tableau.", 'alert');
                 return;
             }
 
             const currentResult = draftResults[index];
             if (!currentResult) {
-                alert("Résultat de repêchage introuvable.");
+                showMessage("Résultat de repêchage introuvable.", 'alert');
                 return;
             }
 
-            // Use prompt for simplicity. For a real app, a modal would be better.
+            // Using prompt for simplicity. For a real app, a modal with input fields would be better.
             const newTeam = prompt(`Modifier l'équipe pour le choix #${currentResult.overallPick} (actuel: ${currentResult.team}):`, currentResult.team);
             if (newTeam === null) return; // User cancelled
 
@@ -1343,15 +1486,15 @@
 
             saveData(); // Save changes to Firebase/localStorage
             updateInterface(); // Refresh the UI
-            alert("Le résultat du repêchage a été mis à jour.");
+            showMessage("Le résultat du repêchage a été mis à jour.", 'alert');
         }
 
 
-        // Draft order management
+        // Gestion de l'ordre de repêchage
         function importDraftOrder(event) {
             if (!isAdmin) return;
             if (!isConnected && !useLocalStorage) {
-                alert('Connexion perdue! Impossible d\'importer.');
+                showMessage('Connexion perdue! Impossible d\'importer.', 'alert');
                 return;
             }
             
@@ -1372,7 +1515,7 @@
                             overall: parseInt(row.Global || row.overall || row.Overall) || ((parseInt(row.Ronde || row.round || 1) - 1) * 26 + parseInt(row.Choix || row.pick || 1))
                         })).filter(order => order.team !== '');
 
-                        // Sort by overall pick
+                        // Trier par choix global
                         orderData.sort((a, b) => a.overall - b.overall);
                         
                         draftOrder = orderData;
@@ -1380,9 +1523,9 @@
                         saveData();
                         updateInterface();
                         
-                        alert(`${orderData.length} entrées d'ordre importées avec succès!`);
+                        showMessage(`${orderData.length} entrées d'ordre importées avec succès!`, 'alert');
                     } catch (error) {
-                        alert('Erreur lors de l\'importation du fichier CSV d\'ordre');
+                        showMessage('Erreur lors de l\'importation du fichier CSV d\'ordre', 'alert');
                         console.error('Import error:', error);
                     }
                 }
@@ -1404,7 +1547,7 @@
             const currentPickerEl = document.getElementById('currentPickerText');
             const currentTeamEl = document.getElementById('currentTeamText');
             
-            // Update current pick display
+            // Mettre à jour le choix actuel
             if (currentPickerEl) {
                 currentPickerEl.textContent = `Ronde ${currentRound} - Choix #${currentPick}`;
             }
@@ -1415,7 +1558,7 @@
                     currentTeamEl.textContent = `Au tour de: ${currentTeam}`;
                     currentTeamEl.style.color = '#10b981';
                     
-                    // Automatically update selected team for admin
+                    // Mettre à jour automatiquement l'équipe sélectionnée pour l'admin
                     if (isAdmin) {
                         selectedTeam = currentTeam;
                         const teamSelect = document.getElementById('teamSelect');
@@ -1442,14 +1585,14 @@
                 return;
             }
 
-            // Calculate current overall pick
+            // Calculer le choix global actuel
             const currentOverallPick = (currentRound - 1) * 26 + currentPick;
             
-            // Filter to get only picks that haven't been made yet
+            // Filtrer pour avoir seulement les choix qui n'ont pas encore été faits
             const upcomingPicks = draftOrder.filter(order => {
                 const orderOverallPick = order.overall;
                 return orderOverallPick >= currentOverallPick;
-            }).slice(0, 10); // Take only the next 10
+            }).slice(0, 10); // Prendre seulement les 10 prochains
 
             if (upcomingPicks.length === 0) {
                 orderEl.innerHTML = `
@@ -1486,6 +1629,98 @@
                 </table>
             `;
         }
+
+        /**
+         * Updates the full draft order table, allowing admin edits.
+         */
+        function updateFullDraftOrderTable() {
+            const fullOrderEl = document.getElementById('fullDraftOrderTable');
+
+            if (draftOrder.length === 0) {
+                fullOrderEl.innerHTML = `
+                    <div class="loading">
+                        <p>Importez un fichier CSV avec l'ordre de repêchage pour voir le tableau complet.</p>
+                        <div style="margin-top: 10px; font-size: 0.8rem; color: #9ca3af;">
+                            Format: Ronde, Choix, Équipe<br>
+                            Exemple: 1, 1, Capitals
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            fullOrderEl.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Choix Global</th>
+                            <th>Ronde</th>
+                            <th>Choix</th>
+                            <th>Équipe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${draftOrder.map((order, index) => {
+                            const currentOverallPick = (currentRound - 1) * 26 + currentPick;
+                            const isCurrentPick = order.overall === currentOverallPick;
+                            return `
+                                <tr ${isAdmin ? `class="editable" onclick="editDraftOrderEntry(${index})"` : ''}
+                                    style="${isCurrentPick ? 'background: rgba(16, 185, 129, 0.3); border: 2px solid #10b981;' : ''}">
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.overall}</td>
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.round}</td>
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.pick}</td>
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'}; color: ${isCurrentPick ? '#10b981' : 'inherit'};">${order.team}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        /**
+         * Allows an admin to edit a specific draft order entry.
+         * @param {number} index The index of the draft order entry in the draftOrder array.
+         */
+        function editDraftOrderEntry(index) {
+            if (!isAdmin) {
+                showMessage("Vous n'avez pas les permissions d'administrateur pour modifier ce tableau.", 'alert');
+                return;
+            }
+
+            const currentOrderEntry = draftOrder[index];
+            if (!currentOrderEntry) {
+                showMessage("Entrée de l'ordre de repêchage introuvable.", 'alert');
+                return;
+            }
+
+            // Using prompt for simplicity.
+            const newRound = prompt(`Modifier la ronde (actuel: ${currentOrderEntry.round}):`, currentOrderEntry.round);
+            if (newRound === null) return;
+
+            const newPick = prompt(`Modifier le choix (actuel: ${currentOrderEntry.pick}):`, currentOrderEntry.pick);
+            if (newPick === null) return;
+
+            const newTeam = prompt(`Modifier l'équipe (actuel: ${currentOrderEntry.team}):`, currentOrderEntry.team);
+            if (newTeam === null) return;
+
+            // Update the draft order entry object
+            draftOrder[index].round = parseInt(newRound) || currentOrderEntry.round;
+            draftOrder[index].pick = parseInt(newPick) || currentOrderEntry.pick;
+            draftOrder[index].team = newTeam;
+
+            // Recalculate overall pick if round or pick changed
+            draftOrder[index].overall = (draftOrder[index].round - 1) * 26 + draftOrder[index].pick;
+
+            // Re-sort the draft order after modification
+            draftOrder.sort((a, b) => a.overall - b.overall);
+
+            saveData(); // Save changes to Firebase/localStorage
+            updateInterface(); // Refresh the UI
+            showMessage("L'entrée de l'ordre de repêchage a été mise à jour.", 'alert');
+        }
+
+
         function selectPlayer(playerId) {
             selectedPlayer = players.find(p => p.id === playerId);
             updatePlayersList();
@@ -1533,7 +1768,7 @@
         function draftPlayer() {
             if (!isAdmin || !selectedPlayer || currentRound > 5) return;
             if (!isConnected && !useLocalStorage) {
-                alert('Connexion perdue! Impossible de repêcher.');
+                showMessage('Connexion perdue! Impossible de repêcher.', 'alert');
                 return;
             }
 
@@ -1549,13 +1784,13 @@
 
             draftResults.push(draftedPlayer);
             
-            // Mark the player as drafted
+            // Marquer le joueur comme repêché
             const playerIndex = players.findIndex(p => p.id === selectedPlayer.id);
             if (playerIndex !== -1) {
                 players[playerIndex].drafted = true;
             }
 
-            // Advance to the next pick
+            // Avancer au prochain choix
             if (currentPick < 26) {
                 currentPick++;
             } else {
@@ -1563,7 +1798,7 @@
                 currentRound++;
             }
 
-            // Automatically restart the timer for the next pick
+            // Redémarrer le timer automatiquement pour le prochain choix
             if (currentRound <= 5) {
                 timerRemaining = timerDuration;
                 timerActive = true;
@@ -1582,7 +1817,7 @@
         function skipPick() {
             if (!isAdmin || currentRound > 5) return;
             if (!isConnected && !useLocalStorage) {
-                alert('Connexion perdue! Impossible de passer le tour.');
+                showMessage('Connexion perdue! Impossible de passer le tour.', 'alert');
                 return;
             }
 
@@ -1593,7 +1828,7 @@
                 currentRound++;
             }
 
-            // Automatically restart the timer for the next pick
+            // Redémarrer le timer automatiquement pour le prochain choix
             if (currentRound <= 5) {
                 timerRemaining = timerDuration;
                 timerActive = true;
@@ -1611,39 +1846,41 @@
         function resetDraft() {
             if (!isAdmin) return;
             if (!isConnected && !useLocalStorage) {
-                alert('Connexion perdue! Impossible de réinitialiser.');
+                showMessage('Connexion perdue! Impossible de réinitialiser.', 'alert');
                 return;
             }
             
-            if (confirm('Êtes-vous sûr de vouloir réinitialiser le repêchage? (Cela inclut le timer et l\'ordre)')) {
-                draftResults = [];
-                currentRound = 1;
-                currentPick = 1;
-                selectedTeam = 'Capitals';
-                
-                // Reset the timer
-                timerActive = false;
-                timerRemaining = timerDuration;
-                if (timerInterval) {
-                    clearInterval(timerInterval);
-                    timerInterval = null;
+            showMessage('Êtes-vous sûr de vouloir réinitialiser le repêchage? (Cela inclut le timer et l\'ordre)', 'confirm', (response) => {
+                if (response) {
+                    draftResults = [];
+                    currentRound = 1;
+                    currentPick = 1;
+                    selectedTeam = 'Capitals';
+                    
+                    // Réinitialiser le timer
+                    timerActive = false;
+                    timerRemaining = timerDuration;
+                    if (timerInterval) {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                    }
+                    
+                    players = players.map(p => ({ ...p, drafted: false }));
+                    selectedPlayer = null;
+                    
+                    document.getElementById('teamSelect').value = selectedTeam;
+                    
+                    saveData();
+                    saveTimerState();
+                    updateInterface();
                 }
-                
-                players = players.map(p => ({ ...p, drafted: false }));
-                selectedPlayer = null;
-                
-                document.getElementById('teamSelect').value = selectedTeam;
-                
-                saveData();
-                saveTimerState();
-                updateInterface();
-            }
+            });
         }
 
         function importPlayers(event) {
             if (!isAdmin) return;
             if (!isConnected && !useLocalStorage) {
-                alert('Connexion perdue! Impossible d\'importer.');
+                showMessage('Connexion perdue! Impossible d\'importer.', 'alert');
                 return;
             }
             
@@ -1678,9 +1915,9 @@
                         saveData();
                         updateInterface();
                         
-                        alert(`${playerData.length} joueurs importés avec succès!`);
+                        showMessage(`${playerData.length} joueurs importés avec succès!`, 'alert');
                     } catch (error) {
-                        alert('Erreur lors de l\'importation du fichier CSV');
+                        showMessage('Erreur lors de l\'importation du fichier CSV', 'alert');
                     }
                 }
             });
@@ -1690,7 +1927,7 @@
 
         function exportToCSV() {
             if (draftResults.length === 0) {
-                alert('Aucun joueur repêché à exporter!');
+                showMessage('Aucun joueur repêché à exporter!', 'alert');
                 return;
             }
 
@@ -1720,19 +1957,22 @@
 
         // Default Firebase configuration (replace with your own)
         const defaultConfig = {
-            "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
-            "authDomain": "lhssdraft.firebaseapp.com",
-            "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
-            "projectId": "lhssdraft",
-            "storageBucket": "lhssdraft.firebasestorage.app",
-            "messagingSenderId": "441205645400",
-            "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
-            "measurementId": "G-N7RN68KTND"
+            // REMPLACEZ CECI PAR VOTRE PROPRE CONFIGURATION FIREBASE !
+            // Vous trouverez cette configuration dans votre console Firebase -> Paramètres du projet -> Vos applications
+            // Exemple:
+            // "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
+            // "authDomain": "lhssdraft.firebaseapp.com",
+            // "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
+            // "projectId": "lhssdraft",
+            // "storageBucket": "lhssdraft.firebasestorage.app",
+            // "messagingSenderId": "441205645400",
+            // "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
+            // "measurementId": "G-N7RN68KTND"
         };
 
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if there is a saved Firebase configuration
+            // Vérifier s'il y a une configuration Firebase sauvegardée
             const savedConfig = localStorage.getItem('firebase-config');
             const localMode = localStorage.getItem('use-local-mode');
             
@@ -1748,11 +1988,14 @@
                     return;
                 } catch (error) {
                     console.error('Erreur de configuration sauvegardée:', error);
+                    // Si la configuration sauvegardée est invalide, on tente avec la configuration par défaut
+                    showMessage('La configuration Firebase sauvegardée est invalide. Veuillez la vérifier ou la reconfigurer.', 'alert');
+                    initializeFirebaseWithConfig(defaultConfig); // Tente avec la config par défaut (qui devrait être vide pour forcer l'utilisateur à entrer la sienne)
                 }
+            } else {
+                // Si aucune configuration n'est sauvegardée, on tente d'initialiser avec la configuration par défaut (vide)
+                initializeFirebaseWithConfig(defaultConfig);
             }
-
-            // Always use the default configuration for all users
-            initializeFirebaseWithConfig(defaultConfig);
 
             document.getElementById('searchInput')?.addEventListener('input', updatePlayersList);
             document.getElementById('positionFilter')?.addEventListener('change', updatePlayersList);
@@ -1763,13 +2006,21 @@
 
         function initializeFirebaseWithConfig(config) {
             try {
+                // Si la configuration est vide (car defaultConfig est vide), on affiche le formulaire de config
+                if (!config || Object.keys(config).length === 0 || !config.databaseURL) {
+                    showFirebaseConfig();
+                    updateConnectionStatus('disconnected', 'Configuration Firebase requise');
+                    return;
+                }
+
                 firebaseApp = firebase.initializeApp(config);
                 database = firebase.database();
                 setupRealtimeListeners();
                 showLoginForm();
             } catch (error) {
                 console.error('Erreur Firebase:', error);
-                // In case of error, switch to local mode
+                showMessage('Erreur d\'initialisation Firebase. Vérifiez votre configuration et vos règles de sécurité. Bascule en mode local.', 'alert');
+                // En cas d'erreur, basculer en mode local
                 useLocalMode();
             }
         }
