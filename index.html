@@ -13,7 +13,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
     <style>
-        /* Global styles */
         * {
             margin: 0;
             padding: 0;
@@ -61,9 +60,11 @@
         @media (max-width: 768px) {
             .lhss-draft-logo {
                 width: 300px;
-                height: 90px;api
+                height: 90px;
             }
         }
+
+        /* Section des logos d'équipes retirée pour éviter les problèmes de copyright */
 
         .login-form {
             max-width: 400px;
@@ -224,7 +225,7 @@
             border-radius: 8px;
             margin-bottom: 8px;
             display: flex;
-            justify-content: space-between;
+            justify-content: between;
             align-items: center;
         }
 
@@ -305,12 +306,6 @@
             background: rgba(55, 65, 81, 1);
             font-weight: bold;
             font-size: 0.7rem;
-        }
-
-        /* Added style for editable rows */
-        .table tbody tr.editable:hover {
-            background-color: rgba(60, 179, 113, 0.3); /* Light green for hover */
-            cursor: pointer;
         }
 
         @media (max-width: 768px) {
@@ -415,42 +410,6 @@
             background: rgba(245, 158, 11, 0.2);
             color: #f59e0b;
         }
-
-        /* Custom Modal Styles */
-        .custom-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-
-        .custom-modal-content {
-            background: rgba(31, 41, 55, 0.95);
-            padding: 30px;
-            border-radius: 15px;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            border: 1px solid #4b5563;
-        }
-
-        .custom-modal-content p {
-            margin-bottom: 20px;
-            font-size: 1.1rem;
-            color: #e5e7eb;
-        }
-
-        .custom-modal-content .modal-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-        }
     </style>
 </head>
 <body>
@@ -459,7 +418,7 @@
         <span id="statusText">Connexion...</span>
     </div>
 
-    <!-- Firebase Configuration -->
+    <!-- Configuration Firebase -->
     <div id="firebaseSetup" class="login-form hidden">
         <h2>🔧 Configuration Firebase</h2>
         <div class="firebase-setup">
@@ -473,16 +432,14 @@
         
         <textarea id="firebaseConfig" placeholder='Collez votre configuration Firebase ici, exemple:
 {
-  "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
-            "authDomain": "lhssdraft.firebaseapp.com",
-            "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
-            "projectId": "lhssdraft",
-            "storageBucket": "lhssdraft.firebasestorage.app",
-            "messagingSenderId": "441205645400",
-            "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
-            "measurementId": "G-N7RN68KTND"
-}
-IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
+  "apiKey": "votre-api-key",
+  "authDomain": "votre-projet.firebaseapp.com",
+  "databaseURL": "https://votre-projet-default-rtdb.firebaseio.com/",
+  "projectId": "votre-projet",
+  "storageBucket": "votre-projet.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "votre-app-id"
+}'
                   style="width: 100%; height: 150px; margin-bottom: 15px; padding: 10px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 8px; color: white; font-family: monospace; font-size: 0.8rem;"></textarea>
         
         <button onclick="initializeFirebase()" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
@@ -542,10 +499,10 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
         <div class="header">
             <h1>🏒 Repêchage LHSS 2020</h1>
             
-            <!-- LHSS Draft Logo (SVG) -->
+            <!-- Logo LHSS Draft -->
             <div class="draft-logo">
                 <svg class="lhss-draft-logo" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Main background -->
+                    <!-- Fond principal -->
                     <defs>
                         <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                             <stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
@@ -557,21 +514,21 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                         </linearGradient>
                     </defs>
                     
-                    <!-- "DRAFT" text -->
+                    <!-- DRAFT en gros -->
                     <g transform="translate(60, 30)">
                         <path d="M0 15 L0 0 L250 0 Q270 0 280 10 L290 25 Q295 40 280 50 L250 60 L0 60 Z" 
                               fill="url(#blueGrad)" stroke="#fff" stroke-width="2"/>
                         <text x="140" y="40" text-anchor="middle" fill="white" font-family="Arial Black" font-size="32" font-weight="bold">DRAFT</text>
                     </g>
                     
-                    <!-- "2020" band -->
+                    <!-- Bandeau 2020 -->
                     <g transform="translate(80, 70)">
                         <path d="M0 10 L180 10 Q200 10 210 20 L220 30 Q225 35 215 40 L200 45 L0 45 Q-10 45 -5 35 L0 25 Z" 
                               fill="url(#redGrad)" stroke="#fff" stroke-width="2"/>
                         <text x="110" y="32" text-anchor="middle" fill="white" font-family="Arial Black" font-size="16" font-weight="bold">2020</text>
                     </g>
                     
-                    <!-- Stars -->
+                    <!-- Étoiles -->
                     <g transform="translate(320, 20)">
                         <polygon points="20,5 25,15 35,15 27,22 30,32 20,25 10,32 13,22 5,15 15,15" 
                                  fill="#fbbf24" stroke="#fff" stroke-width="1"/>
@@ -580,6 +537,8 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                     </g>
                 </svg>
             </div>
+            
+            <!-- Section décoration supprimée pour éviter les problèmes de copyright -->
             
             <p id="roundInfo">Ronde 1 - Choix #1</p>
             <div id="connectionStatusMain" class="connection-status connecting" style="display: inline-flex; margin-top: 10px;">
@@ -704,7 +663,7 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                     👥 Joueurs Disponibles (<span id="availableCount">0</span>)
                 </h2>
                 
-                <!-- Filters available to all users -->
+                <!-- Filtres disponibles pour tous les utilisateurs -->
                 <div id="searchFilters">
                     <input type="text" id="searchInput" placeholder="Rechercher un joueur..." class="search-input">
                     <select id="positionFilter" class="select-input">
@@ -749,35 +708,13 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
             <h2>📊 Tableau Récapitulatif</h2>
             <div id="summaryTable"></div>
         </div>
-
-        <!-- Full Draft Order Table (New Panel) -->
-        <div id="fullDraftOrderPanel" class="panel" style="margin-top: 30px;">
-            <h2>📋 Ordre de Repêchage Complet</h2>
-            <div id="fullDraftOrderTable">
-                <div class="loading">
-                    <p>Importez un fichier CSV avec l'ordre de repêchage pour voir le tableau complet.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Custom Modal HTML -->
-    <div id="customModal" class="custom-modal-overlay hidden">
-        <div class="custom-modal-content">
-            <p id="modalMessage"></p>
-            <div class="modal-buttons">
-                <button id="modalConfirmBtn" class="btn btn-primary hidden">Confirmer</button>
-                <button id="modalCancelBtn" class="btn btn-danger hidden">Annuler</button>
-                <button id="modalAlertBtn" class="btn btn-primary hidden">OK</button>
-            </div>
-        </div>
     </div>
 
     <script>
-        // Global variables
+        // Variables globales
         let players = [];
         let draftResults = [];
-        let draftOrder = []; // New: draft order
+        let draftOrder = []; // Nouveau: ordre de repêchage
         let selectedPlayer = null;
         let currentRound = 1;
         let currentPick = 1;
@@ -788,27 +725,19 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
         let isConnected = false;
         let useLocalStorage = false;
         
-        // Timer variables
-        let timerDuration = 300; // 5 minutes by default (in seconds)
+        // Variables pour le compte à rebours
+        let timerDuration = 300; // 5 minutes par défaut (en secondes)
         let timerRemaining = 300;
         let timerActive = false;
         let timerInterval = null;
 
-        // Default Firebase configuration (to be replaced)
+        // Configuration Firebase par défaut (à remplacer)
         const defaultFirebaseConfig = {
-            // This configuration must be replaced by your project's configuration
-            // Example:
-            // "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
-            // "authDomain": "lhssdraft.firebaseapp.com",
-            // "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
-            // "projectId": "lhssdraft",
-            // "storageBucket": "lhssdraft.firebasestorage.app",
-            // "messagingSenderId": "441205645400",
-            // "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
-            // "measurementId": "G-N7RN68KTND"
+            // Cette configuration doit être remplacée par celle de votre projet
+            databaseURL: "https://votre-projet-default-rtdb.firebaseio.com/"
         };
 
-        // Initial data (backup)
+        // Données initiales (backup)
         const defaultPlayers = [
             {
                 id: 1,
@@ -838,61 +767,12 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
             }
         ];
 
-        // Custom Modal Functions
-        let modalCallback = null;
-
-        function showMessage(message, type, callback = null) {
-            const modal = document.getElementById('customModal');
-            const modalMessage = document.getElementById('modalMessage');
-            const modalConfirmBtn = document.getElementById('modalConfirmBtn');
-            const modalCancelBtn = document.getElementById('modalCancelBtn');
-            const modalAlertBtn = document.getElementById('modalAlertBtn');
-
-            modalMessage.textContent = message;
-            modalCallback = callback;
-
-            // Reset button visibility
-            modalConfirmBtn.classList.add('hidden');
-            modalCancelBtn.classList.add('hidden');
-            modalAlertBtn.classList.add('hidden');
-
-            // Set button visibility based on type
-            if (type === 'confirm') {
-                modalConfirmBtn.classList.remove('hidden');
-                modalCancelBtn.classList.remove('hidden');
-            } else { // type === 'alert'
-                modalAlertBtn.classList.remove('hidden');
-            }
-
-            modal.classList.remove('hidden');
-        }
-
-        function hideMessage() {
-            document.getElementById('customModal').classList.add('hidden');
-            modalCallback = null;
-        }
-
-        document.getElementById('modalAlertBtn').addEventListener('click', hideMessage);
-        document.getElementById('modalConfirmBtn').addEventListener('click', () => {
-            if (modalCallback) {
-                modalCallback(true);
-            }
-            hideMessage();
-        });
-        document.getElementById('modalCancelBtn').addEventListener('click', () => {
-            if (modalCallback) {
-                modalCallback(false);
-            }
-            hideMessage();
-        });
-
-
-        // Firebase Initialization
+        // Initialisation Firebase
         function initializeFirebase() {
             const configText = document.getElementById('firebaseConfig').value.trim();
             
             if (!configText) {
-                showMessage('Veuillez entrer votre configuration Firebase', 'alert');
+                alert('Veuillez entrer votre configuration Firebase');
                 return;
             }
             
@@ -910,7 +790,7 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                 showLoginForm();
                 
             } catch (error) {
-                showMessage('Erreur dans la configuration Firebase: ' + error.message + '. Veuillez vérifier le format JSON.', 'alert');
+                alert('Erreur dans la configuration Firebase: ' + error.message);
                 console.error('Firebase initialization error:', error);
             }
         }
@@ -937,11 +817,11 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
             }
         }
 
-        // Setup Realtime Listeners
+        // Configuration des listeners temps réel
         function setupRealtimeListeners() {
             if (!database || useLocalStorage) return;
 
-            // Listener for players
+            // Listener pour les joueurs
             database.ref('players').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -949,37 +829,27 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                     updateInterface();
                 }
                 updateConnectionStatus('connected', 'Connecté à Firebase');
-            }, (error) => {
-                console.error("Firebase Players Listener Error:", error);
-                showMessage("Erreur de lecture des joueurs depuis Firebase: " + error.message, 'alert');
-                updateConnectionStatus('disconnected', 'Erreur Firebase');
             });
 
-            // Listener for draft results
+            // Listener pour les résultats du draft
             database.ref('draftResults').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     draftResults = data;
                     updateInterface();
                 }
-            }, (error) => {
-                console.error("Firebase Draft Results Listener Error:", error);
-                showMessage("Erreur de lecture des résultats de repêchage depuis Firebase: " + error.message, 'alert');
             });
 
-            // Listener for draft order
+            // Listener pour l'ordre de repêchage
             database.ref('draftOrder').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     draftOrder = data;
                     updateInterface();
                 }
-            }, (error) => {
-                console.error("Firebase Draft Order Listener Error:", error);
-                showMessage("Erreur de lecture de l'ordre de repêchage depuis Firebase: " + error.message, 'alert');
             });
 
-            // Listener for game state
+            // Listener pour l'état du jeu
             database.ref('gameState').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -987,12 +857,9 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                     currentPick = data.currentPick || 1;
                     updateInterface();
                 }
-            }, (error) => {
-                console.error("Firebase Game State Listener Error:", error);
-                showMessage("Erreur de lecture de l'état du jeu depuis Firebase: " + error.message, 'alert');
             });
 
-            // Listener for timer
+            // Listener pour le timer
             database.ref('timer').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -1008,12 +875,9 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                     }
                     updateTimerDisplay();
                 }
-            }, (error) => {
-                console.error("Firebase Timer Listener Error:", error);
-                showMessage("Erreur de lecture du timer depuis Firebase: " + error.message, 'alert');
             });
 
-            // Listener for connection
+            // Listener pour la connexion
             database.ref('.info/connected').on('value', (snapshot) => {
                 isConnected = snapshot.val();
                 if (isConnected) {
@@ -1052,28 +916,18 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
             database.ref('players').once('value', (snapshot) => {
                 if (!snapshot.exists()) {
                     // Initialiser avec les données par défaut
-                    database.ref('players').set(defaultPlayers)
-                        .then(() => console.log("Données par défaut des joueurs initialisées."))
-                        .catch(error => console.error("Erreur d'initialisation des joueurs:", error));
-                    database.ref('draftResults').set([])
-                        .then(() => console.log("Résultats de repêchage par défaut initialisés."))
-                        .catch(error => console.error("Erreur d'initialisation des résultats:", error));
-                    database.ref('draftOrder').set([])
-                        .then(() => console.log("Ordre de repêchage par défaut initialisé."))
-                        .catch(error => console.error("Erreur d'initialisation de l'ordre:", error));
+                    database.ref('players').set(defaultPlayers);
+                    database.ref('draftResults').set([]);
+                    database.ref('draftOrder').set([]);
                     database.ref('gameState').set({
                         currentRound: 1,
                         currentPick: 1
-                    })
-                        .then(() => console.log("État du jeu par défaut initialisé."))
-                        .catch(error => console.error("Erreur d'initialisation de l'état du jeu:", error));
+                    });
                     database.ref('timer').set({
                         duration: 300,
                         remaining: 300,
                         active: false
-                    })
-                        .then(() => console.log("Timer par défaut initialisé."))
-                        .catch(error => console.error("Erreur d'initialisation du timer:", error));
+                    });
                 }
             });
         }
@@ -1151,8 +1005,8 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                     timerInterval = null;
                     
                     if (isAdmin) {
-                        showMessage('⏰ Temps écoulé ! Le choix doit être fait.', 'alert');
                         saveTimerState();
+                        alert('⏰ Temps écoulé ! Le choix doit être fait.');
                     }
                     updateTimerDisplay();
                 }
@@ -1196,7 +1050,7 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                     duration: timerDuration,
                     remaining: timerRemaining,
                     active: timerActive
-                }).catch(error => console.error("Erreur de sauvegarde du timer:", error));
+                });
             }
         }
 
@@ -1209,7 +1063,7 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                 document.getElementById('statusIndicator').className = 'status-indicator status-admin';
                 showMainApp();
             } else {
-                showMessage('Mot de passe incorrect!', 'alert');
+                alert('Mot de passe incorrect!');
             }
         }
 
@@ -1288,13 +1142,13 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                 localStorage.setItem('lhss-pick', currentPick.toString());
             } else if (database && isAdmin) {
                 // Sauvegarder dans Firebase (seulement les admins peuvent modifier)
-                database.ref('players').set(players).catch(error => console.error("Erreur de sauvegarde des joueurs:", error));
-                database.ref('draftResults').set(draftResults).catch(error => console.error("Erreur de sauvegarde des résultats de repêchage:", error));
-                database.ref('draftOrder').set(draftOrder).catch(error => console.error("Erreur de sauvegarde de l'ordre de repêchage:", error));
+                database.ref('players').set(players);
+                database.ref('draftResults').set(draftResults);
+                database.ref('draftOrder').set(draftOrder);
                 database.ref('gameState').set({
                     currentRound: currentRound,
                     currentPick: currentPick
-                }).catch(error => console.error("Erreur de sauvegarde de l'état du jeu:", error));
+                });
             }
         }
 
@@ -1306,7 +1160,6 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
             updatePlayerCount();
             updateSummaryTable();
             updateDraftOrder();
-            updateFullDraftOrderTable(); // Call the new function
             updateTimerDisplay();
         }
 
@@ -1423,8 +1276,8 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                         </tr>
                     </thead>
                     <tbody>
-                        ${draftResults.map((player, index) => `
-                            <tr ${isAdmin ? `class="editable" onclick="editDraftResult(${index})"` : ''}>
+                        ${draftResults.map(player => `
+                            <tr>
                                 <td>${player.round}</td>
                                 <td>${player.overallPick}</td>
                                 <td>${player.team}</td>
@@ -1440,61 +1293,11 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
             `;
         }
 
-        /**
-         * Allows an admin to edit a specific draft result entry.
-         * @param {number} index The index of the draft result in the draftResults array.
-         */
-        function editDraftResult(index) {
-            if (!isAdmin) {
-                showMessage("Vous n'avez pas les permissions d'administrateur pour modifier ce tableau.", 'alert');
-                return;
-            }
-
-            const currentResult = draftResults[index];
-            if (!currentResult) {
-                showMessage("Résultat de repêchage introuvable.", 'alert');
-                return;
-            }
-
-            // Using prompt for simplicity. For a real app, a modal with input fields would be better.
-            const newTeam = prompt(`Modifier l'équipe pour le choix #${currentResult.overallPick} (actuel: ${currentResult.team}):`, currentResult.team);
-            if (newTeam === null) return; // User cancelled
-
-            const newNom = prompt(`Modifier le nom du joueur pour le choix #${currentResult.overallPick} (actuel: ${currentResult.nom}):`, currentResult.nom);
-            if (newNom === null) return;
-
-            const newPosition = prompt(`Modifier la position du joueur (actuel: ${currentResult.position}):`, currentResult.position);
-            if (newPosition === null) return;
-
-            const newPotentiel = prompt(`Modifier le potentiel du joueur (actuel: ${currentResult.potentiel}):`, currentResult.potentiel);
-            if (newPotentiel === null) return;
-
-            const newStyle = prompt(`Modifier le style du joueur (actuel: ${currentResult.style}):`, currentResult.style);
-            if (newStyle === null) return;
-
-            const newPrecision = prompt(`Modifier la précision du joueur (actuel: ${currentResult.precision}):`, currentResult.precision);
-            if (newPrecision === null) return;
-
-
-            // Update the draft result object
-            draftResults[index].team = newTeam;
-            draftResults[index].nom = newNom;
-            draftResults[index].position = newPosition;
-            draftResults[index].potentiel = parseFloat(newPotentiel) || currentResult.potentiel; // Parse as float
-            draftResults[index].style = newStyle;
-            draftResults[index].precision = newPrecision;
-
-            saveData(); // Save changes to Firebase/localStorage
-            updateInterface(); // Refresh the UI
-            showMessage("Le résultat du repêchage a été mis à jour.", 'alert');
-        }
-
-
         // Gestion de l'ordre de repêchage
         function importDraftOrder(event) {
             if (!isAdmin) return;
             if (!isConnected && !useLocalStorage) {
-                showMessage('Connexion perdue! Impossible d\'importer.', 'alert');
+                alert('Connexion perdue! Impossible d\'importer.');
                 return;
             }
             
@@ -1523,9 +1326,9 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                         saveData();
                         updateInterface();
                         
-                        showMessage(`${orderData.length} entrées d'ordre importées avec succès!`, 'alert');
+                        alert(`${orderData.length} entrées d'ordre importées avec succès!`);
                     } catch (error) {
-                        showMessage('Erreur lors de l\'importation du fichier CSV d\'ordre', 'alert');
+                        alert('Erreur lors de l\'importation du fichier CSV d\'ordre');
                         console.error('Import error:', error);
                     }
                 }
@@ -1629,98 +1432,6 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                 </table>
             `;
         }
-
-        /**
-         * Updates the full draft order table, allowing admin edits.
-         */
-        function updateFullDraftOrderTable() {
-            const fullOrderEl = document.getElementById('fullDraftOrderTable');
-
-            if (draftOrder.length === 0) {
-                fullOrderEl.innerHTML = `
-                    <div class="loading">
-                        <p>Importez un fichier CSV avec l'ordre de repêchage pour voir le tableau complet.</p>
-                        <div style="margin-top: 10px; font-size: 0.8rem; color: #9ca3af;">
-                            Format: Ronde, Choix, Équipe<br>
-                            Exemple: 1, 1, Capitals
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-
-            fullOrderEl.innerHTML = `
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Choix Global</th>
-                            <th>Ronde</th>
-                            <th>Choix</th>
-                            <th>Équipe</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${draftOrder.map((order, index) => {
-                            const currentOverallPick = (currentRound - 1) * 26 + currentPick;
-                            const isCurrentPick = order.overall === currentOverallPick;
-                            return `
-                                <tr ${isAdmin ? `class="editable" onclick="editDraftOrderEntry(${index})"` : ''}
-                                    style="${isCurrentPick ? 'background: rgba(16, 185, 129, 0.3); border: 2px solid #10b981;' : ''}">
-                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.overall}</td>
-                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.round}</td>
-                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.pick}</td>
-                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'}; color: ${isCurrentPick ? '#10b981' : 'inherit'};">${order.team}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
-
-        /**
-         * Allows an admin to edit a specific draft order entry.
-         * @param {number} index The index of the draft order entry in the draftOrder array.
-         */
-        function editDraftOrderEntry(index) {
-            if (!isAdmin) {
-                showMessage("Vous n'avez pas les permissions d'administrateur pour modifier ce tableau.", 'alert');
-                return;
-            }
-
-            const currentOrderEntry = draftOrder[index];
-            if (!currentOrderEntry) {
-                showMessage("Entrée de l'ordre de repêchage introuvable.", 'alert');
-                return;
-            }
-
-            // Using prompt for simplicity.
-            const newRound = prompt(`Modifier la ronde (actuel: ${currentOrderEntry.round}):`, currentOrderEntry.round);
-            if (newRound === null) return;
-
-            const newPick = prompt(`Modifier le choix (actuel: ${currentOrderEntry.pick}):`, currentOrderEntry.pick);
-            if (newPick === null) return;
-
-            const newTeam = prompt(`Modifier l'équipe (actuel: ${currentOrderEntry.team}):`, currentOrderEntry.team);
-            if (newTeam === null) return;
-
-            // Update the draft order entry object
-            draftOrder[index].round = parseInt(newRound) || currentOrderEntry.round;
-            draftOrder[index].pick = parseInt(newPick) || currentOrderEntry.pick;
-            draftOrder[index].team = newTeam;
-
-            // Recalculate overall pick if round or pick changed
-            draftOrder[index].overall = (draftOrder[index].round - 1) * 26 + draftOrder[index].pick;
-
-            // Re-sort the draft order after modification
-            draftOrder.sort((a, b) => a.overall - b.overall);
-
-            saveData(); // Save changes to Firebase/localStorage
-            updateInterface(); // Refresh the UI
-            showMessage("L'entrée de l'ordre de repêchage a été mise à jour.", 'alert');
-        }
-
-
         function selectPlayer(playerId) {
             selectedPlayer = players.find(p => p.id === playerId);
             updatePlayersList();
@@ -1768,7 +1479,7 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
         function draftPlayer() {
             if (!isAdmin || !selectedPlayer || currentRound > 5) return;
             if (!isConnected && !useLocalStorage) {
-                showMessage('Connexion perdue! Impossible de repêcher.', 'alert');
+                alert('Connexion perdue! Impossible de repêcher.');
                 return;
             }
 
@@ -1817,7 +1528,7 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
         function skipPick() {
             if (!isAdmin || currentRound > 5) return;
             if (!isConnected && !useLocalStorage) {
-                showMessage('Connexion perdue! Impossible de passer le tour.', 'alert');
+                alert('Connexion perdue! Impossible de passer le tour.');
                 return;
             }
 
@@ -1846,41 +1557,39 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
         function resetDraft() {
             if (!isAdmin) return;
             if (!isConnected && !useLocalStorage) {
-                showMessage('Connexion perdue! Impossible de réinitialiser.', 'alert');
+                alert('Connexion perdue! Impossible de réinitialiser.');
                 return;
             }
             
-            showMessage('Êtes-vous sûr de vouloir réinitialiser le repêchage? (Cela inclut le timer et l\'ordre)', 'confirm', (response) => {
-                if (response) {
-                    draftResults = [];
-                    currentRound = 1;
-                    currentPick = 1;
-                    selectedTeam = 'Capitals';
-                    
-                    // Réinitialiser le timer
-                    timerActive = false;
-                    timerRemaining = timerDuration;
-                    if (timerInterval) {
-                        clearInterval(timerInterval);
-                        timerInterval = null;
-                    }
-                    
-                    players = players.map(p => ({ ...p, drafted: false }));
-                    selectedPlayer = null;
-                    
-                    document.getElementById('teamSelect').value = selectedTeam;
-                    
-                    saveData();
-                    saveTimerState();
-                    updateInterface();
+            if (confirm('Êtes-vous sûr de vouloir réinitialiser le repêchage? (Cela inclut le timer et l\'ordre)')) {
+                draftResults = [];
+                currentRound = 1;
+                currentPick = 1;
+                selectedTeam = 'Capitals';
+                
+                // Réinitialiser le timer
+                timerActive = false;
+                timerRemaining = timerDuration;
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
                 }
-            });
+                
+                players = players.map(p => ({ ...p, drafted: false }));
+                selectedPlayer = null;
+                
+                document.getElementById('teamSelect').value = selectedTeam;
+                
+                saveData();
+                saveTimerState();
+                updateInterface();
+            }
         }
 
         function importPlayers(event) {
             if (!isAdmin) return;
             if (!isConnected && !useLocalStorage) {
-                showMessage('Connexion perdue! Impossible d\'importer.', 'alert');
+                alert('Connexion perdue! Impossible d\'importer.');
                 return;
             }
             
@@ -1915,9 +1624,9 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                         saveData();
                         updateInterface();
                         
-                        showMessage(`${playerData.length} joueurs importés avec succès!`, 'alert');
+                        alert(`${playerData.length} joueurs importés avec succès!`);
                     } catch (error) {
-                        showMessage('Erreur lors de l\'importation du fichier CSV', 'alert');
+                        alert('Erreur lors de l\'importation du fichier CSV');
                     }
                 }
             });
@@ -1927,7 +1636,7 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
 
         function exportToCSV() {
             if (draftResults.length === 0) {
-                showMessage('Aucun joueur repêché à exporter!', 'alert');
+                alert('Aucun joueur repêché à exporter!');
                 return;
             }
 
@@ -1955,19 +1664,16 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
             a.click();
         }
 
-        // Default Firebase configuration (replace with your own)
+        // Configuration Firebase par défaut (remplacez par la vôtre)
         const defaultConfig = {
-            // REMPLACEZ CECI PAR VOTRE PROPRE CONFIGURATION FIREBASE !
-            // Vous trouverez cette configuration dans votre console Firebase -> Paramètres du projet -> Vos applications
-            // Exemple:
-            // "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
-            // "authDomain": "lhssdraft.firebaseapp.com",
-            // "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
-            // "projectId": "lhssdraft",
-            // "storageBucket": "lhssdraft.firebasestorage.app",
-            // "messagingSenderId": "441205645400",
-            // "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
-            // "measurementId": "G-N7RN68KTND"
+            "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
+            "authDomain": "lhssdraft.firebaseapp.com",
+            "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
+            "projectId": "lhssdraft",
+            "storageBucket": "lhssdraft.firebasestorage.app",
+            "messagingSenderId": "441205645400",
+            "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
+            "measurementId": "G-N7RN68KTND"
         };
 
         // Event listeners
@@ -1988,14 +1694,11 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
                     return;
                 } catch (error) {
                     console.error('Erreur de configuration sauvegardée:', error);
-                    // Si la configuration sauvegardée est invalide, on tente avec la configuration par défaut
-                    showMessage('La configuration Firebase sauvegardée est invalide. Veuillez la vérifier ou la reconfigurer.', 'alert');
-                    initializeFirebaseWithConfig(defaultConfig); // Tente avec la config par défaut (qui devrait être vide pour forcer l'utilisateur à entrer la sienne)
                 }
-            } else {
-                // Si aucune configuration n'est sauvegardée, on tente d'initialiser avec la configuration par défaut (vide)
-                initializeFirebaseWithConfig(defaultConfig);
             }
+
+            // Toujours utiliser la configuration par défaut pour tous les utilisateurs
+            initializeFirebaseWithConfig(defaultConfig);
 
             document.getElementById('searchInput')?.addEventListener('input', updatePlayersList);
             document.getElementById('positionFilter')?.addEventListener('change', updatePlayersList);
@@ -2006,20 +1709,12 @@ IMPORTANT: Remplacez ce texte par votre VRAIE configuration Firebase!'
 
         function initializeFirebaseWithConfig(config) {
             try {
-                // Si la configuration est vide (car defaultConfig est vide), on affiche le formulaire de config
-                if (!config || Object.keys(config).length === 0 || !config.databaseURL) {
-                    showFirebaseConfig();
-                    updateConnectionStatus('disconnected', 'Configuration Firebase requise');
-                    return;
-                }
-
                 firebaseApp = firebase.initializeApp(config);
                 database = firebase.database();
                 setupRealtimeListeners();
                 showLoginForm();
             } catch (error) {
                 console.error('Erreur Firebase:', error);
-                showMessage('Erreur d\'initialisation Firebase. Vérifiez votre configuration et vos règles de sécurité. Bascule en mode local.', 'alert');
                 // En cas d'erreur, basculer en mode local
                 useLocalMode();
             }
