@@ -6,11 +6,11 @@
     <title>Repêchage LHSS 2020</title>
     
     <!-- Firebase SDKs -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js"></script>
+    <script src="[https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js](https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js)"></script>
+    <script src="[https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js](https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js)"></script>
     
     <!-- Papa Parse pour CSV -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="[https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js](https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js)"></script>
     
     <style>
         /* Global styles */
@@ -429,7 +429,7 @@
         <div class="firebase-setup">
             <h3>Instructions de configuration :</h3>
             <ol style="text-align: left; margin-bottom: 15px; color: #d1d5db;">
-                <li>Créez un projet Firebase sur <a href="https://console.firebase.google.com" target="_blank" style="color: #60a5fa;">console.firebase.google.com</a></li>
+                <li>Créez un projet Firebase sur <a href="[https://console.firebase.google.com](https://console.firebase.google.com)" target="_blank" style="color: #60a5fa;">console.firebase.google.com</a></li>
                 <li>Activez Realtime Database</li>
                 <li>Copiez la configuration et collez-la ci-dessous</li>
             </ol>
@@ -439,7 +439,7 @@
 {
   "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
             "authDomain": "lhssdraft.firebaseapp.com",
-            "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
+            "databaseURL": "[https://lhssdraft-default-rtdb.firebaseio.com](https://lhssdraft-default-rtdb.firebaseio.com)",
             "projectId": "lhssdraft",
             "storageBucket": "lhssdraft.firebasestorage.app",
             "messagingSenderId": "441205645400",
@@ -507,7 +507,7 @@
             
             <!-- LHSS Draft Logo (SVG) -->
             <div class="draft-logo">
-                <svg class="lhss-draft-logo" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+                <svg class="lhss-draft-logo" viewBox="0 0 400 120" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
                     <!-- Main background -->
                     <defs>
                         <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -712,6 +712,16 @@
             <h2>📊 Tableau Récapitulatif</h2>
             <div id="summaryTable"></div>
         </div>
+
+        <!-- Full Draft Order Table (New Panel) -->
+        <div id="fullDraftOrderPanel" class="panel" style="margin-top: 30px;">
+            <h2>📋 Ordre de Repêchage Complet</h2>
+            <div id="fullDraftOrderTable">
+                <div class="loading">
+                    <p>Importez un fichier CSV avec l'ordre de repêchage pour voir le tableau complet.</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -738,7 +748,7 @@
         // Default Firebase configuration (to be replaced)
         const defaultFirebaseConfig = {
             // This configuration must be replaced by your project's configuration
-            databaseURL: "https://votre-projet-default-rtdb.firebaseio.com/"
+            databaseURL: "[https://votre-projet-default-rtdb.firebaseio.com/](https://votre-projet-default-rtdb.firebaseio.com/)"
         };
 
         // Initial data (backup)
@@ -1164,6 +1174,7 @@
             updatePlayerCount();
             updateSummaryTable();
             updateDraftOrder();
+            updateFullDraftOrderTable(); // Call the new function
             updateTimerDisplay();
         }
 
@@ -1486,6 +1497,98 @@
                 </table>
             `;
         }
+
+        /**
+         * Updates the full draft order table, allowing admin edits.
+         */
+        function updateFullDraftOrderTable() {
+            const fullOrderEl = document.getElementById('fullDraftOrderTable');
+
+            if (draftOrder.length === 0) {
+                fullOrderEl.innerHTML = `
+                    <div class="loading">
+                        <p>Importez un fichier CSV avec l'ordre de repêchage pour voir le tableau complet.</p>
+                        <div style="margin-top: 10px; font-size: 0.8rem; color: #9ca3af;">
+                            Format: Ronde, Choix, Équipe<br>
+                            Exemple: 1, 1, Capitals
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            fullOrderEl.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Choix Global</th>
+                            <th>Ronde</th>
+                            <th>Choix</th>
+                            <th>Équipe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${draftOrder.map((order, index) => {
+                            const currentOverallPick = (currentRound - 1) * 26 + currentPick;
+                            const isCurrentPick = order.overall === currentOverallPick;
+                            return `
+                                <tr ${isAdmin ? `class="editable" onclick="editDraftOrderEntry(${index})"` : ''}
+                                    style="${isCurrentPick ? 'background: rgba(16, 185, 129, 0.3); border: 2px solid #10b981;' : ''}">
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.overall}</td>
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.round}</td>
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'};">${order.pick}</td>
+                                    <td style="font-weight: ${isCurrentPick ? 'bold' : 'normal'}; color: ${isCurrentPick ? '#10b981' : 'inherit'};">${order.team}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        /**
+         * Allows an admin to edit a specific draft order entry.
+         * @param {number} index The index of the draft order entry in the draftOrder array.
+         */
+        function editDraftOrderEntry(index) {
+            if (!isAdmin) {
+                alert("Vous n'avez pas les permissions d'administrateur pour modifier ce tableau.");
+                return;
+            }
+
+            const currentOrderEntry = draftOrder[index];
+            if (!currentOrderEntry) {
+                alert("Entrée de l'ordre de repêchage introuvable.");
+                return;
+            }
+
+            // Use prompt for simplicity.
+            const newRound = prompt(`Modifier la ronde (actuel: ${currentOrderEntry.round}):`, currentOrderEntry.round);
+            if (newRound === null) return;
+
+            const newPick = prompt(`Modifier le choix (actuel: ${currentOrderEntry.pick}):`, currentOrderEntry.pick);
+            if (newPick === null) return;
+
+            const newTeam = prompt(`Modifier l'équipe (actuel: ${currentOrderEntry.team}):`, currentOrderEntry.team);
+            if (newTeam === null) return;
+
+            // Update the draft order entry object
+            draftOrder[index].round = parseInt(newRound) || currentOrderEntry.round;
+            draftOrder[index].pick = parseInt(newPick) || currentOrderEntry.pick;
+            draftOrder[index].team = newTeam;
+
+            // Recalculate overall pick if round or pick changed
+            draftOrder[index].overall = (draftOrder[index].round - 1) * 26 + draftOrder[index].pick;
+
+            // Re-sort the draft order after modification
+            draftOrder.sort((a, b) => a.overall - b.overall);
+
+            saveData(); // Save changes to Firebase/localStorage
+            updateInterface(); // Refresh the UI
+            alert("L'entrée de l'ordre de repêchage a été mise à jour.");
+        }
+
+
         function selectPlayer(playerId) {
             selectedPlayer = players.find(p => p.id === playerId);
             updatePlayersList();
@@ -1722,7 +1825,7 @@
         const defaultConfig = {
             "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
             "authDomain": "lhssdraft.firebaseapp.com",
-            "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
+            "databaseURL": "[https://lhssdraft-default-rtdb.firebaseio.com](https://lhssdraft-default-rtdb.firebaseio.com)",
             "projectId": "lhssdraft",
             "storageBucket": "lhssdraft.firebasestorage.app",
             "messagingSenderId": "441205645400",
